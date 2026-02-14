@@ -45,10 +45,11 @@ The demo will:
 1. Start a local Hardhat node
 2. Compile and deploy the `ReserveAttestation` contract
 3. Start the mock reserve API
-4. Start the recovery agent (dry-run mode)
-5. Simulate a **healthy** reserve check → attestation `true` → agent idle
-6. Toggle to **undercollateralized** → attestation `false` → agent executes recovery
-7. Toggle back to **healthy** → attestation `true` → agent confirms
+4. Start the live dashboard at `http://localhost:3002`
+5. Start the recovery agent (dry-run mode)
+6. Simulate a **healthy** reserve check → attestation `true` → agent idle
+7. Toggle to **undercollateralized** → attestation `false` → agent executes recovery
+8. Toggle back to **healthy** → attestation `true` → agent confirms
 
 ## Project Structure
 
@@ -65,6 +66,10 @@ workflow/
 mock-api/
   server.ts                         Express server on :3001
 
+dashboard/
+  server.ts                         Express backend on :3002 (aggregates chain + API data)
+  public/index.html                 Single-page live dashboard (no build step)
+
 agent/
   index.ts                          Entry point + graceful shutdown
   monitor.ts                        viem event watcher (ReserveStatusUpdated)
@@ -78,11 +83,33 @@ demo/
   simulate-workflow.ts              Local CRE workflow simulation
 ```
 
+## Dashboard
+
+A live web dashboard at `http://localhost:3002` provides a visual view of the system during demos:
+
+- **Attestation status** — large green/red indicator showing current solvency
+- **Reserve data** — total reserves, liabilities, and collateralization ratio
+- **Event timeline** — scrollable history of on-chain `ReserveStatusUpdated` events
+- **Agent activity** — recovery actions taken by the agent
+
+The dashboard auto-starts with `npm run demo`, or run standalone:
+
+```bash
+CONTRACT_ADDRESS=0x... npm run dashboard
+```
+
+## Security
+
+See [SECURITY.md](./SECURITY.md) for a detailed breakdown of the security architecture, including what runs inside the TEE in production vs what is simulated in the demo.
+
 ## Running Individual Modules
 
 ```bash
 # Mock API (port 3001)
 npm run mock-api
+
+# Live dashboard (port 3002)
+CONTRACT_ADDRESS=0x... npm run dashboard
 
 # Recovery agent (requires CONTRACT_ADDRESS env var)
 CONTRACT_ADDRESS=0x... npm run agent

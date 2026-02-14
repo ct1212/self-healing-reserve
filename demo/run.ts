@@ -4,6 +4,7 @@ import { simulateWorkflow } from './simulate-workflow'
 
 const RPC_URL = 'http://127.0.0.1:8545'
 const API_URL = 'http://127.0.0.1:3001'
+const DASHBOARD_URL = 'http://127.0.0.1:3002'
 
 const children: ChildProcess[] = []
 
@@ -73,6 +74,8 @@ const HARDHAT_NOISE = [
   'eth_getTransactionReceipt',
   'eth_blockNumber',
   'eth_getLogs',
+  'eth_call',
+  'eth_accounts',
 ]
 
 function isNoisyLine(label: string, line: string): boolean {
@@ -110,6 +113,7 @@ async function main() {
   // Free ports from any stale processes
   freePort(8545)
   freePort(3001)
+  freePort(3002)
   await sleep(500)
 
   // Step 1: Start Hardhat node
@@ -127,37 +131,42 @@ async function main() {
   startProcess('npx', ['tsx', 'mock-api/server.ts'], 'mock-api')
   await waitForReady(`${API_URL}/state`, 'Mock API')
 
-  // Step 4: Start agent (set env before spawning)
-  console.log('\n[demo] Step 4: Starting recovery agent...')
+  // Step 4: Start dashboard
+  console.log('\n[demo] Step 4: Starting live dashboard...')
   process.env.CONTRACT_ADDRESS = contractAddress
   process.env.RPC_URL = RPC_URL
+  startProcess('npx', ['tsx', 'dashboard/server.ts'], 'dashboard')
+  await waitForReady(`${DASHBOARD_URL}/api/status`, 'Dashboard')
+
+  // Step 5: Start agent (set env before spawning)
+  console.log('\n[demo] Step 5: Starting recovery agent...')
   process.env.AWAL_DRY_RUN = 'true'
   startProcess('npx', ['tsx', 'agent/index.ts'], 'agent')
   await sleep(2000)
 
-  // Step 5: Simulate healthy check
-  console.log('\n[demo] Step 5: Simulating HEALTHY reserve check...')
+  // Step 6: Simulate healthy check
+  console.log('\n[demo] Step 6: Simulating HEALTHY reserve check...')
   const result1 = await simulateWorkflow(contractAddress, `${API_URL}/reserves`, RPC_URL)
   console.log(`[demo] → Attestation: isSolvent=${result1}`)
   await sleep(3000)
 
-  // Step 6: Toggle to undercollateralized
-  console.log('\n[demo] Step 6: Toggling to UNDERCOLLATERALIZED...')
+  // Step 7: Toggle to undercollateralized
+  console.log('\n[demo] Step 7: Toggling to UNDERCOLLATERALIZED...')
   await fetch(`${API_URL}/toggle`, { method: 'POST' })
   console.log('[demo] Mock API now reporting undercollateralized.')
 
-  // Step 7: Simulate undercollateralized check
-  console.log('\n[demo] Step 7: Simulating UNDERCOLLATERALIZED reserve check...')
+  // Step 8: Simulate undercollateralized check
+  console.log('\n[demo] Step 8: Simulating UNDERCOLLATERALIZED reserve check...')
   const result2 = await simulateWorkflow(contractAddress, `${API_URL}/reserves`, RPC_URL)
   console.log(`[demo] → Attestation: isSolvent=${result2}`)
   await sleep(3000)
 
-  // Step 8: Toggle back to healthy
-  console.log('\n[demo] Step 8: Toggling back to HEALTHY...')
+  // Step 9: Toggle back to healthy
+  console.log('\n[demo] Step 9: Toggling back to HEALTHY...')
   await fetch(`${API_URL}/toggle`, { method: 'POST' })
 
-  // Step 9: Simulate recovery confirmation
-  console.log('\n[demo] Step 9: Simulating RECOVERY confirmation check...')
+  // Step 10: Simulate recovery confirmation
+  console.log('\n[demo] Step 10: Simulating RECOVERY confirmation check...')
   const result3 = await simulateWorkflow(contractAddress, `${API_URL}/reserves`, RPC_URL)
   console.log(`[demo] → Attestation: isSolvent=${result3}`)
   await sleep(2000)
@@ -167,6 +176,7 @@ async function main() {
   console.log('  Demo Summary')
   console.log('='.repeat(60))
   console.log(`  Contract:      ${contractAddress}`)
+  console.log(`  Dashboard:     ${DASHBOARD_URL}`)
   console.log(`  Check 1:       isSolvent=${result1} (healthy → agent idle)`)
   console.log(`  Check 2:       isSolvent=${result2} (undercollateralized → agent recovers)`)
   console.log(`  Check 3:       isSolvent=${result3} (restored → agent confirms)`)

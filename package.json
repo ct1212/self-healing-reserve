@@ -4,9 +4,10 @@
   "private": true,
   "description": "Self-Healing Reserve — CRE + Coinbase Agentic Wallet demo",
   "scripts": {
-    "setup": "npm install && cd mock-api && npm install && cd ../workflow && npm install && cd ../agent && npm install && cd ../demo && npm install",
+    "setup": "npm install && cd mock-api && npm install && cd ../workflow && npm install && cd ../agent && npm install && cd ../demo && npm install && cd ../dashboard && npm install",
     "mock-api": "npx tsx mock-api/server.ts",
     "agent": "npx tsx agent/index.ts",
+    "dashboard": "npx tsx dashboard/server.ts",
     "demo": "npx tsx demo/run.ts",
     "compile": "npx tsx demo/deploy-contract.ts --compile-only"
   },

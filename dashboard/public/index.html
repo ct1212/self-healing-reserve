@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Self-Healing Reserve — Live Dashboard</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #0a0a0f;
+      color: #e0e0e0;
+      font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+      min-height: 100vh;
+      padding: 24px;
+    }
+
+    h1 {
+      text-align: center;
+      font-size: 1.5rem;
+      color: #8b8bff;
+      margin-bottom: 8px;
+      letter-spacing: 1px;
+    }
+
+    .subtitle {
+      text-align: center;
+      color: #666;
+      font-size: 0.8rem;
+      margin-bottom: 32px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+
+    .card {
+      background: #12121a;
+      border: 1px solid #222;
+      border-radius: 8px;
+      padding: 20px;
+    }
+
+    .card h2 {
+      font-size: 0.85rem;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      margin-bottom: 16px;
+    }
+
+    .card.full-width {
+      grid-column: 1 / -1;
+    }
+
+    /* Status indicator */
+    .status-block {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .status-dot {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    .status-dot.solvent {
+      background: #22c55e;
+      box-shadow: 0 0 20px rgba(34, 197, 94, 0.4);
+    }
+
+    .status-dot.insolvent {
+      background: #ef4444;
+      box-shadow: 0 0 20px rgba(239, 68, 68, 0.4);
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
+
+    .status-label {
+      font-size: 1.4rem;
+      font-weight: bold;
+    }
+
+    .status-label.solvent { color: #22c55e; }
+    .status-label.insolvent { color: #ef4444; }
+
+    /* Stats */
+    .stat-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid #1a1a25;
+    }
+
+    .stat-row:last-child { border-bottom: none; }
+
+    .stat-label { color: #888; }
+    .stat-value { color: #e0e0e0; font-weight: bold; }
+
+    /* Ratio bar */
+    .ratio-bar-container {
+      margin-top: 12px;
+    }
+
+    .ratio-bar-track {
+      height: 8px;
+      background: #1a1a25;
+      border-radius: 4px;
+      overflow: hidden;
+      margin-top: 6px;
+    }
+
+    .ratio-bar-fill {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.5s ease, background 0.5s ease;
+    }
+
+    .ratio-bar-fill.healthy { background: #22c55e; }
+    .ratio-bar-fill.warning { background: #eab308; }
+    .ratio-bar-fill.danger { background: #ef4444; }
+
+    .ratio-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.75rem;
+      color: #666;
+    }
+
+    /* Event timeline */
+    .timeline {
+      max-height: 260px;
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: #333 #12121a;
+    }
+
+    .event-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 0;
+      border-bottom: 1px solid #1a1a25;
+      font-size: 0.85rem;
+    }
+
+    .event-item:last-child { border-bottom: none; }
+
+    .event-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .event-dot.solvent { background: #22c55e; }
+    .event-dot.insolvent { background: #ef4444; }
+
+    .event-time { color: #666; font-size: 0.8rem; min-width: 80px; }
+    .event-block { color: #555; font-size: 0.75rem; }
+
+    .empty-state {
+      color: #444;
+      font-style: italic;
+      padding: 20px 0;
+      text-align: center;
+    }
+
+    /* Agent activity */
+    .activity-item {
+      padding: 8px 0;
+      border-bottom: 1px solid #1a1a25;
+      font-size: 0.85rem;
+    }
+
+    .activity-item:last-child { border-bottom: none; }
+
+    .activity-action {
+      color: #eab308;
+      font-weight: bold;
+      text-transform: uppercase;
+      font-size: 0.75rem;
+    }
+
+    .activity-details { color: #999; margin-top: 2px; }
+    .activity-time { color: #555; font-size: 0.75rem; }
+
+    /* Connection status */
+    .conn-status {
+      position: fixed;
+      top: 12px;
+      right: 16px;
+      font-size: 0.7rem;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .conn-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+    }
+
+    .conn-dot.ok { background: #22c55e; }
+    .conn-dot.err { background: #ef4444; }
+  </style>
+</head>
+<body>
+  <h1>Self-Healing Reserve</h1>
+  <p class="subtitle">Live Dashboard &mdash; Chainlink CRE + Coinbase Agentic Wallet</p>
+
+  <div class="conn-status">
+    <span class="conn-dot" id="conn-dot"></span>
+    <span id="conn-label">connecting...</span>
+  </div>
+
+  <div class="grid">
+    <!-- Status -->
+    <div class="card">
+      <h2>Attestation Status</h2>
+      <div class="status-block">
+        <div class="status-dot" id="status-dot"></div>
+        <span class="status-label" id="status-label">---</span>
+      </div>
+      <div style="margin-top: 16px;">
+        <div class="stat-row">
+          <span class="stat-label">Contract</span>
+          <span class="stat-value" id="contract-solvent">---</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Last Updated</span>
+          <span class="stat-value" id="contract-updated">---</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Reserves -->
+    <div class="card">
+      <h2>Reserve Data</h2>
+      <div class="stat-row">
+        <span class="stat-label">Total Reserve</span>
+        <span class="stat-value" id="total-reserve">---</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Total Liabilities</span>
+        <span class="stat-value" id="total-liabilities">---</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Ratio</span>
+        <span class="stat-value" id="ratio-value">---</span>
+      </div>
+      <div class="ratio-bar-container">
+        <div class="ratio-label">
+          <span>0%</span>
+          <span>100%</span>
+          <span>200%</span>
+        </div>
+        <div class="ratio-bar-track">
+          <div class="ratio-bar-fill" id="ratio-bar"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Event Timeline -->
+    <div class="card">
+      <h2>Event Timeline</h2>
+      <div class="timeline" id="event-timeline">
+        <div class="empty-state">Waiting for events...</div>
+      </div>
+    </div>
+
+    <!-- Agent Activity -->
+    <div class="card">
+      <h2>Agent Activity</h2>
+      <div class="timeline" id="agent-activity">
+        <div class="empty-state">No recovery actions yet.</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API = '/api/status';
+    let lastEventCount = 0;
+
+    function formatNumber(n) {
+      return n.toLocaleString('en-US');
+    }
+
+    function formatTime(ts) {
+      if (!ts) return '---';
+      const d = new Date(ts * 1000);
+      return d.toLocaleTimeString();
+    }
+
+    function update(data) {
+      const { reserves, contract, events, agent } = data;
+
+      // Status indicator
+      const solvent = contract.isSolvent;
+      const dot = document.getElementById('status-dot');
+      const label = document.getElementById('status-label');
+      dot.className = 'status-dot ' + (solvent ? 'solvent' : 'insolvent');
+      label.className = 'status-label ' + (solvent ? 'solvent' : 'insolvent');
+      label.textContent = solvent ? 'SOLVENT' : 'UNDERCOLLATERALIZED';
+
+      // Contract state
+      document.getElementById('contract-solvent').textContent = contract.isSolvent ? 'true' : 'false';
+      document.getElementById('contract-updated').textContent = formatTime(contract.lastUpdated);
+
+      // Reserves
+      document.getElementById('total-reserve').textContent = '$' + formatNumber(reserves.totalReserve);
+      document.getElementById('total-liabilities').textContent = '$' + formatNumber(reserves.totalLiabilities);
+
+      const ratio = reserves.totalLiabilities > 0
+        ? (reserves.totalReserve / reserves.totalLiabilities)
+        : 1;
+      const pct = Math.round(ratio * 100);
+      document.getElementById('ratio-value').textContent = pct + '%';
+
+      const bar = document.getElementById('ratio-bar');
+      const barWidth = Math.min(pct / 2, 100); // 200% = full bar
+      bar.style.width = barWidth + '%';
+      bar.className = 'ratio-bar-fill ' + (pct >= 100 ? 'healthy' : pct >= 80 ? 'warning' : 'danger');
+
+      // Event timeline
+      if (events.length !== lastEventCount) {
+        lastEventCount = events.length;
+        const tl = document.getElementById('event-timeline');
+        if (events.length === 0) {
+          tl.innerHTML = '<div class="empty-state">Waiting for events...</div>';
+        } else {
+          tl.innerHTML = events.slice().reverse().map(e =>
+            `<div class="event-item">
+              <span class="event-dot ${e.isSolvent ? 'solvent' : 'insolvent'}"></span>
+              <span class="event-time">${formatTime(e.timestamp)}</span>
+              <span>${e.isSolvent ? 'Solvent' : 'Undercollateralized'}</span>
+              <span class="event-block">block #${e.blockNumber}</span>
+            </div>`
+          ).join('');
+        }
+      }
+
+      // Agent activity
+      const actEl = document.getElementById('agent-activity');
+      if (agent.activities && agent.activities.length > 0) {
+        actEl.innerHTML = agent.activities.slice().reverse().map(a =>
+          `<div class="activity-item">
+            <span class="activity-action">${a.action}</span>
+            <span class="activity-time">${formatTime(a.timestamp)}</span>
+            ${a.details ? `<div class="activity-details">${a.details}</div>` : ''}
+          </div>`
+        ).join('');
+      }
+    }
+
+    async function poll() {
+      const connDot = document.getElementById('conn-dot');
+      const connLabel = document.getElementById('conn-label');
+
+      try {
+        const res = await fetch(API);
+        if (!res.ok) throw new Error('bad response');
+        const data = await res.json();
+        update(data);
+        connDot.className = 'conn-dot ok';
+        connLabel.textContent = 'connected';
+      } catch {
+        connDot.className = 'conn-dot err';
+        connLabel.textContent = 'disconnected';
+      }
+    }
+
+    poll();
+    setInterval(poll, 2000);
+  </script>
+</body>
+</html>

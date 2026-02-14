@@ -1,0 +1,12 @@
+{
+  "name": "self-healing-reserve-dashboard",
+  "version": "0.1.0",
+  "private": true,
+  "dependencies": {
+    "express": "^4.21.0",
+    "viem": "^2.21.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0"
+  }
+}
