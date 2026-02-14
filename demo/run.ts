@@ -1,4 +1,4 @@
-import { spawn, type ChildProcess } from 'child_process'
+import { execSync, spawn, type ChildProcess } from 'child_process'
 import { deployContract } from './deploy-contract'
 import { simulateWorkflow } from './simulate-workflow'
 
@@ -17,12 +17,23 @@ function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
 
+/** Kill any process holding a given port */
+function freePort(port: number) {
+  try {
+    execSync(`lsof -ti:${port} | xargs kill -9 2>/dev/null`, { stdio: 'ignore' })
+  } catch {}
+}
+
+/** Strip ANSI escape codes */
+function stripAnsi(s: string): string {
+  return s.replace(/\x1b\[[0-9;]*m/g, '')
+}
+
 function waitForReady(url: string, label: string, timeoutMs = 15000): Promise<void> {
   return new Promise((resolve, reject) => {
     const start = Date.now()
     const check = async () => {
       try {
-        // For JSON-RPC endpoints, POST a simple request; for HTTP APIs, use GET
         const isRpc = url.includes('8545')
         const res = isRpc
           ? await fetch(url, {
@@ -45,6 +56,30 @@ function waitForReady(url: string, label: string, timeoutMs = 15000): Promise<vo
   })
 }
 
+/** Lines to suppress from Hardhat output */
+const HARDHAT_NOISE = [
+  'Account #',
+  'Private Key:',
+  'WARNING: These accounts',
+  'Any funds sent to them',
+  'Accounts',
+  '========',
+  'eth_fillTransaction',
+  'eth_getTransactionCount',
+  'eth_getBlockByNumber',
+  'eth_maxPriorityFeePerGas',
+  'eth_estimateGas',
+  'eth_sendRawTransaction',
+  'eth_getTransactionReceipt',
+  'eth_blockNumber',
+  'eth_getLogs',
+]
+
+function isNoisyLine(label: string, line: string): boolean {
+  if (label !== 'hardhat') return false
+  return HARDHAT_NOISE.some(noise => line.includes(noise))
+}
+
 function startProcess(cmd: string, args: string[], label: string): ChildProcess {
   const child = spawn(cmd, args, {
     stdio: ['pipe', 'pipe', 'pipe'],
@@ -52,16 +87,16 @@ function startProcess(cmd: string, args: string[], label: string): ChildProcess 
   })
   children.push(child)
 
-  child.stdout?.on('data', (data: Buffer) => {
-    for (const line of data.toString().split('\n').filter(Boolean)) {
+  const handleOutput = (data: Buffer) => {
+    for (const raw of data.toString().split('\n').filter(Boolean)) {
+      const line = stripAnsi(raw)
+      if (isNoisyLine(label, line)) continue
       console.log(`  ${label} | ${line}`)
     }
-  })
-  child.stderr?.on('data', (data: Buffer) => {
-    for (const line of data.toString().split('\n').filter(Boolean)) {
-      console.log(`  ${label} | ${line}`)
-    }
-  })
+  }
+
+  child.stdout?.on('data', handleOutput)
+  child.stderr?.on('data', handleOutput)
 
   return child
 }
@@ -72,11 +107,16 @@ async function main() {
   console.log('='.repeat(60))
   console.log()
 
+  // Free ports from any stale processes
+  freePort(8545)
+  freePort(3001)
+  await sleep(500)
+
   // Step 1: Start Hardhat node
   console.log('[demo] Step 1: Starting Hardhat node...')
-  const hardhatNode = startProcess('npx', ['hardhat', 'node'], 'hardhat')
+  startProcess('npx', ['hardhat', 'node'], 'hardhat')
   await waitForReady(`${RPC_URL}`, 'Hardhat node')
-  await sleep(1000) // extra settle time
+  await sleep(1000)
 
   // Step 2: Deploy contract
   console.log('\n[demo] Step 2: Deploying ReserveAttestation contract...')
@@ -93,13 +133,13 @@ async function main() {
   process.env.RPC_URL = RPC_URL
   process.env.AWAL_DRY_RUN = 'true'
   startProcess('npx', ['tsx', 'agent/index.ts'], 'agent')
-  await sleep(2000) // let agent start polling
+  await sleep(2000)
 
   // Step 5: Simulate healthy check
   console.log('\n[demo] Step 5: Simulating HEALTHY reserve check...')
   const result1 = await simulateWorkflow(contractAddress, `${API_URL}/reserves`, RPC_URL)
   console.log(`[demo] → Attestation: isSolvent=${result1}`)
-  await sleep(3000) // let agent process event
+  await sleep(3000)
 
   // Step 6: Toggle to undercollateralized
   console.log('\n[demo] Step 6: Toggling to UNDERCOLLATERALIZED...')
@@ -110,7 +150,7 @@ async function main() {
   console.log('\n[demo] Step 7: Simulating UNDERCOLLATERALIZED reserve check...')
   const result2 = await simulateWorkflow(contractAddress, `${API_URL}/reserves`, RPC_URL)
   console.log(`[demo] → Attestation: isSolvent=${result2}`)
-  await sleep(3000) // let agent detect + recover
+  await sleep(3000)
 
   // Step 8: Toggle back to healthy
   console.log('\n[demo] Step 8: Toggling back to HEALTHY...')
@@ -120,7 +160,7 @@ async function main() {
   console.log('\n[demo] Step 9: Simulating RECOVERY confirmation check...')
   const result3 = await simulateWorkflow(contractAddress, `${API_URL}/reserves`, RPC_URL)
   console.log(`[demo] → Attestation: isSolvent=${result3}`)
-  await sleep(2000) // let agent see recovery
+  await sleep(2000)
 
   // Summary
   console.log('\n' + '='.repeat(60))
