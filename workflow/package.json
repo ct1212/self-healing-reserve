@@ -1,0 +1,9 @@
+{
+  "name": "reserve-workflow",
+  "version": "0.1.0",
+  "private": true,
+  "comment": "@chainlink/cre-sdk is provided by the CRE runtime — this workflow deploys via `cre deploy`",
+  "dependencies": {
+    "zod": "^3.23.0"
+  }
+}

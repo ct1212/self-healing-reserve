@@ -1,0 +1,8 @@
+{
+  "name": "reserve-demo",
+  "version": "0.1.0",
+  "private": true,
+  "dependencies": {
+    "viem": "^2.21.0"
+  }
+}
