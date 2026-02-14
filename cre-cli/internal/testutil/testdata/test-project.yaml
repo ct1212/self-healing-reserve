@@ -1,0 +1,6 @@
+staging:
+  logging:
+    seth-config-path: ""
+  rpcs:
+    - chain-name: ethereum-testnet-sepolia
+      url: https://example.com

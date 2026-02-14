@@ -1,0 +1,18 @@
+# DO NOT CHANGE
+staging:
+  hierarchy-test: Project
+  test-key: projectValue
+  user-workflow:
+    workflow-owner-address: ""
+    workflow-name: ""
+  workflow-artifacts:
+    workflow-language: "go"
+    workflow-path: "./main.go"
+    config-path: "./config.json"
+  logging:
+    seth-config-path: seth.toml
+  rpcs:
+    - chain-name: ethereum-testnet-sepolia-arbitrum-1
+      url: https://somethingElse.rpc.org
+    - chain-name: ethereum-testnet-sepolia
+      url: https://something.rpc.org
