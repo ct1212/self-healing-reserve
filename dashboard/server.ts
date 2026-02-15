@@ -4,6 +4,8 @@ import { fileURLToPath } from 'url'
 import { createPublicClient, http } from 'viem'
 import { hardhat } from 'viem/chains'
 import { ReserveAttestation } from '../contracts/abi/ReserveAttestation'
+import { HealthMonitor } from './health'
+import { AlertManager } from './alerts'
 
 const app = express()
 app.use(express.json())
@@ -16,6 +18,10 @@ const PORT = process.env.DASHBOARD_PORT || 3002
 // Serve static files
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 app.use(express.static(path.join(__dirname, 'public')))
+
+// Initialize health monitor and alerts
+const healthMonitor = new HealthMonitor(API_URL, RPC_URL)
+const alertManager = new AlertManager()
 
 // In-memory event log
 const events: Array<{
@@ -30,6 +36,21 @@ const agentActivity: Array<{
   timestamp: number
   details?: string
 }> = []
+
+// Agent metrics (from latest report)
+let agentMetrics: any = null
+
+// Recovery history (last 100)
+const recoveryHistory: Array<{
+  timestamp: number
+  success: boolean
+  durationMs: number
+  steps: any[]
+}> = []
+
+// Track last agent report time for health monitoring
+let lastAgentReportTime: number | null = null
+let agentDownAlertSent = false
 
 // GET /api/status — aggregated dashboard data
 app.get('/api/status', async (_req, res) => {
@@ -75,6 +96,13 @@ app.get('/api/status', async (_req, res) => {
       agent: {
         activities: agentActivity,
         recoveryCount: agentActivity.filter(a => a.action === 'recovery').length,
+        metrics: agentMetrics,
+      },
+      recoveries: recoveryHistory.slice(-10),
+      health: healthMonitor.getHealth(),
+      alerts: {
+        config: alertManager.getConfig(),
+        recent: alertManager.getHistory(10),
       },
     })
   } catch (err) {
@@ -82,15 +110,230 @@ app.get('/api/status', async (_req, res) => {
   }
 })
 
-// POST /api/agent-activity — agent reports actions here
-app.post('/api/agent-activity', (req, res) => {
-  const { action, details } = req.body
-  agentActivity.push({
-    action: action || 'unknown',
-    timestamp: Math.floor(Date.now() / 1000),
-    details,
+// POST /api/agent-activity — agent reports actions and metrics here
+app.post('/api/agent-activity', async (req, res) => {
+  try {
+    const { action, details, metrics, recovery, timestamp } = req.body
+
+    // Legacy support
+    if (action) {
+      agentActivity.push({
+        action,
+        timestamp: timestamp || Math.floor(Date.now() / 1000),
+        details,
+      })
+    }
+
+    // Update metrics
+    if (metrics) {
+      agentMetrics = metrics
+
+      // Record agent report for health monitoring
+      const agentStartTime = Date.now() - (metrics.uptimeSeconds * 1000)
+      healthMonitor.recordAgentReport(agentStartTime)
+      lastAgentReportTime = Date.now()
+      agentDownAlertSent = false
+    }
+
+    // Track recovery history
+    if (recovery) {
+      recoveryHistory.push({
+        timestamp: timestamp || Date.now(),
+        success: recovery.success,
+        durationMs: recovery.durationMs,
+        steps: recovery.steps,
+      })
+
+      // Keep only last 100 recoveries
+      if (recoveryHistory.length > 100) {
+        recoveryHistory.splice(0, recoveryHistory.length - 100)
+      }
+
+      // Send alert on recovery failure
+      if (!recovery.success) {
+        const failedStep = recovery.steps.find((s: any) => !s.success)
+        await alertManager.sendAlert(
+          'RECOVERY_FAILURE',
+          `Recovery failed at step: ${failedStep?.step || 'unknown'}`,
+          { recovery, metrics }
+        )
+      }
+    }
+
+    res.json({ ok: true })
+  } catch (err) {
+    console.error('[dashboard] Error processing agent activity:', err)
+    res.status(500).json({ error: 'Failed to process agent activity' })
+  }
+})
+
+// GET /api/health — health check endpoint
+app.get('/api/health', (_req, res) => {
+  const isHealthy = healthMonitor.isHealthy()
+  res.status(isHealthy ? 200 : 503).json({
+    healthy: isHealthy,
+    status: healthMonitor.getHealth(),
   })
-  res.json({ ok: true })
+})
+
+// GET /api/recoveries — recovery history with pagination
+app.get('/api/recoveries', (req, res) => {
+  const limit = Math.min(Number(req.query.limit) || 10, 100)
+  const offset = Number(req.query.offset) || 0
+
+  const slice = recoveryHistory.slice(-(offset + limit), -offset || undefined)
+
+  res.json({
+    total: recoveryHistory.length,
+    limit,
+    offset,
+    recoveries: slice,
+  })
+})
+
+// GET /api/export/events.json
+app.get('/api/export/events.json', (req, res) => {
+  try {
+    let filtered = events
+
+    if (req.query.since) {
+      const since = Number(req.query.since)
+      filtered = filtered.filter(e => e.timestamp >= since)
+    }
+
+    if (req.query.until) {
+      const until = Number(req.query.until)
+      filtered = filtered.filter(e => e.timestamp <= until)
+    }
+
+    if (req.query.limit) {
+      const limit = Number(req.query.limit)
+      filtered = filtered.slice(-limit)
+    }
+
+    res.setHeader('Content-Disposition', 'attachment; filename="events.json"')
+    res.setHeader('Content-Type', 'application/json')
+    res.json(filtered)
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to export events' })
+  }
+})
+
+// GET /api/export/events.csv
+app.get('/api/export/events.csv', (req, res) => {
+  try {
+    let filtered = events
+
+    if (req.query.since) {
+      const since = Number(req.query.since)
+      filtered = filtered.filter(e => e.timestamp >= since)
+    }
+
+    if (req.query.until) {
+      const until = Number(req.query.until)
+      filtered = filtered.filter(e => e.timestamp <= until)
+    }
+
+    if (req.query.limit) {
+      const limit = Number(req.query.limit)
+      filtered = filtered.slice(-limit)
+    }
+
+    const csv = [
+      'isSolvent,timestamp,blockNumber,time',
+      ...filtered.map(e =>
+        `${e.isSolvent},${e.timestamp},${e.blockNumber},${new Date(e.timestamp * 1000).toISOString()}`
+      ),
+    ].join('\n')
+
+    res.setHeader('Content-Disposition', 'attachment; filename="events.csv"')
+    res.setHeader('Content-Type', 'text/csv')
+    res.send(csv)
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to export events' })
+  }
+})
+
+// GET /api/export/activities.json
+app.get('/api/export/activities.json', (req, res) => {
+  try {
+    let filtered = agentActivity
+
+    if (req.query.since) {
+      const since = Number(req.query.since)
+      filtered = filtered.filter(a => a.timestamp >= since)
+    }
+
+    if (req.query.until) {
+      const until = Number(req.query.until)
+      filtered = filtered.filter(a => a.timestamp <= until)
+    }
+
+    if (req.query.limit) {
+      const limit = Number(req.query.limit)
+      filtered = filtered.slice(-limit)
+    }
+
+    res.setHeader('Content-Disposition', 'attachment; filename="activities.json"')
+    res.setHeader('Content-Type', 'application/json')
+    res.json(filtered)
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to export activities' })
+  }
+})
+
+// GET /api/export/activities.csv
+app.get('/api/export/activities.csv', (req, res) => {
+  try {
+    let filtered = agentActivity
+
+    if (req.query.since) {
+      const since = Number(req.query.since)
+      filtered = filtered.filter(a => a.timestamp >= since)
+    }
+
+    if (req.query.until) {
+      const until = Number(req.query.until)
+      filtered = filtered.filter(a => a.timestamp <= until)
+    }
+
+    if (req.query.limit) {
+      const limit = Number(req.query.limit)
+      filtered = filtered.slice(-limit)
+    }
+
+    const csv = [
+      'action,timestamp,details,time',
+      ...filtered.map(a =>
+        `${a.action},${a.timestamp},"${(a.details || '').replace(/"/g, '""')}",${new Date(a.timestamp * 1000).toISOString()}`
+      ),
+    ].join('\n')
+
+    res.setHeader('Content-Disposition', 'attachment; filename="activities.csv"')
+    res.setHeader('Content-Type', 'text/csv')
+    res.send(csv)
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to export activities' })
+  }
+})
+
+// GET /api/alerts/config
+app.get('/api/alerts/config', (_req, res) => {
+  res.json(alertManager.getConfig())
+})
+
+// POST /api/alerts/test
+app.post('/api/alerts/test', async (_req, res) => {
+  try {
+    await alertManager.sendAlert(
+      'HEALTH_CHECK_FAILURE',
+      'This is a test alert from the Self-Healing Reserve dashboard',
+      { test: true, timestamp: Date.now() }
+    )
+    res.json({ ok: true, message: 'Test alert sent to all enabled channels' })
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to send test alert' })
+  }
 })
 
 // Background event poller
@@ -120,11 +363,23 @@ async function pollEvents() {
         for (const log of logs) {
           const args = (log as any).args
           if (args) {
+            const isSolvent = args.isSolvent as boolean
+            const timestamp = Number(args.timestamp as bigint)
+
             events.push({
-              isSolvent: args.isSolvent as boolean,
-              timestamp: Number(args.timestamp as bigint),
+              isSolvent,
+              timestamp,
               blockNumber: Number(log.blockNumber),
             })
+
+            // Send alert on undercollateralization
+            if (!isSolvent) {
+              await alertManager.sendAlert(
+                'UNDERCOLLATERALIZATION',
+                `Reserve became undercollateralized at block ${log.blockNumber}`,
+                { timestamp, blockNumber: Number(log.blockNumber) }
+              )
+            }
           }
         }
 
@@ -136,12 +391,78 @@ async function pollEvents() {
   }
 }
 
-const server = app.listen(PORT, () => {
-  console.log(`[dashboard] Live dashboard at http://127.0.0.1:${PORT}`)
+// Background agent health monitor
+async function monitorAgentHealth() {
+  const AGENT_TIMEOUT = 5 * 60 * 1000 // 5 minutes
+
+  while (true) {
+    await new Promise(resolve => setTimeout(resolve, 30000)) // Check every 30s
+
+    if (lastAgentReportTime) {
+      const timeSinceReport = Date.now() - lastAgentReportTime
+
+      if (timeSinceReport > AGENT_TIMEOUT && !agentDownAlertSent) {
+        await alertManager.sendAlert(
+          'AGENT_DOWN',
+          `Agent has not reported for ${Math.floor(timeSinceReport / 60000)} minutes`,
+          { lastReport: lastAgentReportTime }
+        )
+        agentDownAlertSent = true
+      }
+    }
+  }
+}
+
+// Background health check monitor
+async function monitorSystemHealth() {
+  let lastHealthy = true
+
+  while (true) {
+    await new Promise(resolve => setTimeout(resolve, 30000)) // Check every 30s
+
+    const health = healthMonitor.getHealth()
+    const isHealthy = healthMonitor.isHealthy()
+
+    // Alert on transition from healthy to unhealthy
+    if (lastHealthy && !isHealthy) {
+      const unhealthyComponents = []
+      if (!health.api.healthy) unhealthyComponents.push('API')
+      if (!health.blockchain.healthy) unhealthyComponents.push('Blockchain')
+      if (!health.agent.healthy) unhealthyComponents.push('Agent')
+
+      await alertManager.sendAlert(
+        'HEALTH_CHECK_FAILURE',
+        `System health check failed: ${unhealthyComponents.join(', ')} unhealthy`,
+        { health }
+      )
+    }
+
+    lastHealthy = isHealthy
+  }
+}
+
+const server = app.listen(PORT, '0.0.0.0', () => {
+  console.log(`[dashboard] Live dashboard at http://0.0.0.0:${PORT}`)
+  console.log(`[dashboard] Access from browser: http://76.13.177.213:${PORT}`)
+
+  // Start background tasks
+  healthMonitor.start()
   pollEvents()
+  monitorAgentHealth()
+  monitorSystemHealth()
+
+  console.log('[dashboard] Background monitoring started')
+  console.log(`[dashboard] Alerts: ${alertManager.getConfig().enabled ? 'enabled' : 'disabled'}`)
 })
 
-process.on('SIGTERM', () => server.close())
-process.on('SIGINT', () => server.close())
+process.on('SIGTERM', () => {
+  healthMonitor.stop()
+  server.close()
+})
+
+process.on('SIGINT', () => {
+  healthMonitor.stop()
+  server.close()
+})
 
 export { app, server }
