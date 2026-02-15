@@ -15,6 +15,7 @@ const API_URL = process.env.MOCK_API_URL || 'http://127.0.0.1:3001'
 const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS as `0x${string}` | undefined
 const PORT = process.env.DASHBOARD_PORT || 3002
 const PUBLIC_URL = process.env.PUBLIC_URL || process.env.VPS_IP || '76.13.177.213'
+const BIND_HOST = process.env.BIND_HOST || '127.0.0.1' // Localhost only for production security
 
 // Serve static files
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -442,9 +443,13 @@ async function monitorSystemHealth() {
   }
 }
 
-const server = app.listen(PORT, '0.0.0.0', () => {
-  console.log(`[dashboard] Live dashboard at http://0.0.0.0:${PORT}`)
-  console.log(`[dashboard] Access from browser: http://${PUBLIC_URL}:${PORT}`)
+const server = app.listen(PORT, BIND_HOST, () => {
+  console.log(`[dashboard] Server listening on ${BIND_HOST}:${PORT}`)
+  if (BIND_HOST === '127.0.0.1') {
+    console.log(`[dashboard] Access via Nginx: http://${PUBLIC_URL}/cre`)
+  } else {
+    console.log(`[dashboard] Direct access: http://${PUBLIC_URL}:${PORT}`)
+  }
 
   // Start background tasks
   healthMonitor.start()

@@ -2,6 +2,9 @@
   "name": "self-healing-reserve-dashboard",
   "version": "0.1.0",
   "private": true,
+  "scripts": {
+    "start": "npx tsx server.ts"
+  },
   "dependencies": {
     "express": "^4.21.0",
     "nodemailer": "^6.9.8",
