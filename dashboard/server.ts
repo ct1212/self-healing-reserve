@@ -338,6 +338,80 @@ app.post('/api/alerts/test', async (_req, res) => {
   }
 })
 
+// POST /api/simulate - Simulate a recovery scenario
+app.post('/api/simulate', async (_req, res) => {
+  try {
+    const now = Date.now()
+
+    // Simulate undercollateralization event
+    events.push({
+      isSolvent: false,
+      timestamp: Math.floor(now / 1000),
+      blockNumber: events.length + 1,
+    })
+
+    // Simulate recovery steps
+    const recoverySteps = [
+      { step: 'checkBalance' as const, success: true, timestamp: now, durationMs: 50, data: { balance: '1000 USDC' } },
+      { step: 'trade' as const, success: true, timestamp: now + 100, durationMs: 150, data: { amount: '0.01 ETH → 10 USDC' } },
+      { step: 'send' as const, success: true, timestamp: now + 300, durationMs: 100, data: { tx: '0x123...' } },
+    ]
+
+    // Add to recovery history
+    recoveryHistory.push({
+      timestamp: now,
+      success: true,
+      durationMs: 300,
+      steps: recoverySteps,
+    })
+
+    // Simulate agent metrics
+    if (!agentMetrics) {
+      agentMetrics = {
+        totalRecoveries: 0,
+        successfulRecoveries: 0,
+        failedRecoveries: 0,
+        successRate: 0,
+        avgResponseTimeMs: 0,
+        uptimeSeconds: 60,
+        errorCount: 0,
+        recentErrors: [],
+      }
+    }
+
+    agentMetrics.totalRecoveries++
+    agentMetrics.successfulRecoveries++
+    agentMetrics.successRate = (agentMetrics.successfulRecoveries / agentMetrics.totalRecoveries) * 100
+    agentMetrics.avgResponseTimeMs = ((agentMetrics.avgResponseTimeMs * (agentMetrics.totalRecoveries - 1)) + 300) / agentMetrics.totalRecoveries
+
+    // Update health monitor
+    healthMonitor.recordAgentReport(now - 60000)
+
+    // Simulate recovery event (after a delay to show the cycle)
+    setTimeout(() => {
+      events.push({
+        isSolvent: true,
+        timestamp: Math.floor((now + 5000) / 1000),
+        blockNumber: events.length + 1,
+      })
+    }, 1000)
+
+    res.json({
+      ok: true,
+      message: 'Simulated recovery scenario',
+      data: {
+        event: 'Undercollateralization detected',
+        recovery: 'Executed successfully',
+        steps: 3,
+        duration: '300ms',
+      }
+    })
+  } catch (err) {
+    console.error('[simulate] Error:', err)
+    res.status(500).json({ error: 'Failed to simulate recovery' })
+  }
+})
+
 // Background event poller
 async function pollEvents() {
   if (!CONTRACT_ADDRESS) return

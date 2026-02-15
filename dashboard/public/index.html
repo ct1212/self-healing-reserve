@@ -541,6 +541,7 @@
       </div>
       <div class="alert-providers" id="alert-providers"></div>
       <div class="btn-group">
+        <button class="btn" onclick="simulateRecovery()" style="background: #22c55e; color: #000; font-weight: bold;">🔄 Simulate Recovery</button>
         <button class="btn" onclick="testAlerts()">Test Alerts</button>
       </div>
       <div style="margin-top: 16px;">
@@ -593,6 +594,27 @@
         alert(data.ok ? 'Test alert sent!' : 'Failed to send alert');
       } catch (err) {
         alert('Error sending test alert: ' + err.message);
+      }
+    }
+
+    async function simulateRecovery() {
+      try {
+        const res = await fetch('/api/simulate', { method: 'POST' });
+        const data = await res.json();
+        if (data.ok) {
+          alert('✅ Recovery simulated!\n\n' +
+                'Event: ' + data.data.event + '\n' +
+                'Recovery: ' + data.data.recovery + '\n' +
+                'Steps: ' + data.data.steps + '\n' +
+                'Duration: ' + data.data.duration + '\n\n' +
+                'Check the dashboard for updated metrics!');
+          // Trigger immediate update
+          poll();
+        } else {
+          alert('Failed to simulate recovery');
+        }
+      } catch (err) {
+        alert('Error simulating recovery: ' + err.message);
       }
     }
 
