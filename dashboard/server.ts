@@ -52,6 +52,9 @@ const recoveryHistory: Array<{
   steps: any[]
 }> = []
 
+// Ratio history for chart (capped at 200)
+const ratioHistory: Array<{ timestamp: number; ratio: number }> = []
+
 // Track last agent report time for health monitoring
 let lastAgentReportTime: number | null = null
 let agentDownAlertSent = false
@@ -93,6 +96,13 @@ app.get('/api/status', async (_req, res) => {
       } catch {}
     }
 
+    // Track ratio history
+    const ratio = reserves.totalLiabilities > 0
+      ? reserves.totalReserve / reserves.totalLiabilities
+      : 1
+    ratioHistory.push({ timestamp: Date.now(), ratio })
+    if (ratioHistory.length > 200) ratioHistory.splice(0, ratioHistory.length - 200)
+
     res.json({
       reserves,
       contract,
@@ -109,6 +119,7 @@ app.get('/api/status', async (_req, res) => {
         recent: alertManager.getHistory(10),
       },
       services: getServicesStatus(),
+      ratioHistory: ratioHistory.slice(-50),
     })
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch status' })
@@ -342,73 +353,88 @@ app.post('/api/alerts/test', async (_req, res) => {
 })
 
 // POST /api/simulate - Simulate a recovery scenario
+// 1. Toggles mock API to insolvent, responds immediately
+// 2. After 3s, toggles back to solvent and records recovery
 app.post('/api/simulate', async (_req, res) => {
   try {
+    // Toggle to insolvent
+    const toggleRes = await fetch(`${API_URL}/toggle`, { method: 'POST' })
+    const toggleData = await toggleRes.json()
+
     const now = Date.now()
 
-    // Simulate undercollateralization event
+    // Record undercollateralization event
     events.push({
       isSolvent: false,
       timestamp: Math.floor(now / 1000),
       blockNumber: events.length + 1,
     })
 
-    // Simulate recovery steps
-    const recoverySteps = [
-      { step: 'checkBalance' as const, success: true, timestamp: now, durationMs: 50, data: { balance: '1000 USDC' } },
-      { step: 'trade' as const, success: true, timestamp: now + 100, durationMs: 150, data: { amount: '0.01 ETH → 10 USDC' } },
-      { step: 'send' as const, success: true, timestamp: now + 300, durationMs: 100, data: { tx: '0x123...' } },
-    ]
-
-    // Add to recovery history
-    recoveryHistory.push({
-      timestamp: now,
-      success: true,
-      durationMs: 300,
-      steps: recoverySteps,
-    })
-
-    // Simulate agent metrics
-    if (!agentMetrics) {
-      agentMetrics = {
-        totalRecoveries: 0,
-        successfulRecoveries: 0,
-        failedRecoveries: 0,
-        successRate: 0,
-        avgResponseTimeMs: 0,
-        uptimeSeconds: 60,
-        errorCount: 0,
-        recentErrors: [],
-      }
-    }
-
-    agentMetrics.totalRecoveries++
-    agentMetrics.successfulRecoveries++
-    agentMetrics.successRate = (agentMetrics.successfulRecoveries / agentMetrics.totalRecoveries) * 100
-    agentMetrics.avgResponseTimeMs = ((agentMetrics.avgResponseTimeMs * (agentMetrics.totalRecoveries - 1)) + 300) / agentMetrics.totalRecoveries
-
-    // Update health monitor
-    healthMonitor.recordAgentReport(now - 60000)
-
-    // Simulate recovery event (after a delay to show the cycle)
-    setTimeout(() => {
-      events.push({
-        isSolvent: true,
-        timestamp: Math.floor((now + 5000) / 1000),
-        blockNumber: events.length + 1,
-      })
-    }, 1000)
-
+    // Respond immediately so frontend can show insolvent state
     res.json({
       ok: true,
-      message: 'Simulated recovery scenario',
+      phase: 'undercollateralized',
       data: {
-        event: 'Undercollateralization detected',
-        recovery: 'Executed successfully',
-        steps: 3,
-        duration: '300ms',
-      }
+        totalReserve: toggleData.totalReserve,
+        totalLiabilities: toggleData.totalLiabilities,
+        ratio: toggleData.totalLiabilities > 0
+          ? Math.round((toggleData.totalReserve / toggleData.totalLiabilities) * 100)
+          : 100,
+      },
     })
+
+    // After 3 seconds, trigger recovery
+    setTimeout(async () => {
+      try {
+        // Toggle back to solvent
+        await fetch(`${API_URL}/toggle`, { method: 'POST' })
+
+        const recoveryTime = Date.now()
+
+        // Record recovery steps
+        const recoverySteps = [
+          { step: 'checkBalance' as const, success: true, timestamp: recoveryTime, durationMs: 50, data: { balance: '1000 USDC' } },
+          { step: 'trade' as const, success: true, timestamp: recoveryTime + 100, durationMs: 150, data: { amount: '0.01 ETH → 10 USDC' } },
+          { step: 'send' as const, success: true, timestamp: recoveryTime + 300, durationMs: 100, data: { tx: '0x123...' } },
+        ]
+
+        recoveryHistory.push({
+          timestamp: recoveryTime,
+          success: true,
+          durationMs: 300,
+          steps: recoverySteps,
+        })
+
+        // Record solvent event
+        events.push({
+          isSolvent: true,
+          timestamp: Math.floor(recoveryTime / 1000),
+          blockNumber: events.length + 1,
+        })
+
+        // Update agent metrics
+        if (!agentMetrics) {
+          agentMetrics = {
+            totalRecoveries: 0,
+            successfulRecoveries: 0,
+            failedRecoveries: 0,
+            successRate: 0,
+            avgResponseTimeMs: 0,
+            uptimeSeconds: 60,
+            errorCount: 0,
+            recentErrors: [],
+          }
+        }
+
+        agentMetrics.totalRecoveries++
+        agentMetrics.successfulRecoveries++
+        agentMetrics.successRate = (agentMetrics.successfulRecoveries / agentMetrics.totalRecoveries) * 100
+        agentMetrics.avgResponseTimeMs = ((agentMetrics.avgResponseTimeMs * (agentMetrics.totalRecoveries - 1)) + 300) / agentMetrics.totalRecoveries
+        healthMonitor.recordAgentReport(recoveryTime - 60000)
+      } catch (err) {
+        console.error('[simulate] Recovery phase failed:', err)
+      }
+    }, 3000)
   } catch (err) {
     console.error('[simulate] Error:', err)
     res.status(500).json({ error: 'Failed to simulate recovery' })
@@ -416,25 +442,29 @@ app.post('/api/simulate', async (_req, res) => {
 })
 
 // POST /api/simulate-failure - Simulate a failed recovery scenario
+// Toggles to insolvent and stays there (recovery fails)
 app.post('/api/simulate-failure', async (_req, res) => {
   try {
+    // Toggle to insolvent
+    const toggleRes = await fetch(`${API_URL}/toggle`, { method: 'POST' })
+    const toggleData = await toggleRes.json()
+
     const now = Date.now()
 
-    // Simulate undercollateralization event
+    // Record undercollateralization event
     events.push({
       isSolvent: false,
       timestamp: Math.floor(now / 1000),
       blockNumber: events.length + 1,
     })
 
-    // Simulate recovery steps with failure at trade step
+    // Record failed recovery steps
     const recoverySteps = [
       { step: 'checkBalance' as const, success: true, timestamp: now, durationMs: 50, data: { balance: '1000 USDC' } },
       { step: 'trade' as const, success: false, timestamp: now + 100, durationMs: 200, data: { error: 'Insufficient liquidity in pool' } },
       { step: 'send' as const, success: false, timestamp: now + 300, durationMs: 0, data: { error: 'Skipped — previous step failed' } },
     ]
 
-    // Add to recovery history
     recoveryHistory.push({
       timestamp: now,
       success: false,
@@ -466,29 +496,39 @@ app.post('/api/simulate-failure', async (_req, res) => {
       timestamp: now,
     })
 
-    // Keep only last 10 errors
     if (agentMetrics.recentErrors.length > 10) {
       agentMetrics.recentErrors = agentMetrics.recentErrors.slice(-10)
     }
 
-    // Update health monitor
     healthMonitor.recordAgentReport(now - 60000)
 
+    // Stays insolvent — no recovery toggle back
     res.json({
       ok: true,
-      message: 'Simulated failed recovery scenario',
+      phase: 'failed',
       data: {
-        event: 'Undercollateralization detected',
-        recovery: 'Failed at trade step',
+        totalReserve: toggleData.totalReserve,
+        totalLiabilities: toggleData.totalLiabilities,
         failedStep: 'Execute Trade',
         error: 'Insufficient liquidity in pool',
-        steps: 3,
-        duration: '250ms',
-      }
+      },
     })
   } catch (err) {
     console.error('[simulate-failure] Error:', err)
     res.status(500).json({ error: 'Failed to simulate recovery failure' })
+  }
+})
+
+// POST /api/toggle-reserves — proxy to mock API toggle endpoint
+app.post('/api/toggle-reserves', async (_req, res) => {
+  try {
+    const apiRes = await fetch(`${API_URL}/toggle`, { method: 'POST' })
+    if (!apiRes.ok) throw new Error('Mock API returned ' + apiRes.status)
+    const data = await apiRes.json()
+    res.json(data)
+  } catch (err: any) {
+    console.error('[dashboard] Toggle reserves failed:', err)
+    res.status(500).json({ error: err.message || 'Failed to toggle reserves' })
   }
 })
 

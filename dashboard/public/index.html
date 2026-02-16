@@ -855,6 +855,10 @@
           <span class="stat-label">Last Updated</span>
           <span class="stat-value" id="contract-updated">---</span>
         </div>
+        <div class="stat-row" id="contract-addr-row" style="display:none;">
+          <span class="stat-label">Address</span>
+          <span class="stat-value" id="contract-addr" style="font-size:0.8rem;cursor:default;" title=""></span>
+        </div>
       </div>
     </div>
 
@@ -885,6 +889,7 @@
           <div class="ratio-threshold-label">Solvency Threshold</div>
         </div>
       </div>
+      <div id="ratio-chart" style="margin-top:20px;"></div>
     </div>
 
     <!-- Event Timeline -->
@@ -1150,47 +1155,136 @@
     }
 
     async function simulateRecovery() {
-      setSimulateLoading('btn-simulate', true);
+      var btn = document.getElementById('btn-simulate');
+      btn.disabled = true;
+      document.getElementById('btn-simulate-fail').disabled = true;
+      btn.textContent = 'Triggering...';
       try {
-        const res = await fetch('api/simulate', { method: 'POST' });
-        const data = await res.json();
+        var res = await fetch('api/simulate', { method: 'POST' });
+        var data = await res.json();
         if (data.ok) {
           showToast(
-            'Recovery Simulated',
-            data.data.steps + ' steps completed in ' + data.data.duration,
-            'success'
+            'Undercollateralized!',
+            'Reserve ratio dropped to ' + data.data.ratio + '%. Agent recovering in 3s...',
+            'error'
           );
           poll();
+          // Keep button disabled during the 3s recovery window
+          btn.textContent = 'Recovering...';
+          setTimeout(function() {
+            showToast(
+              'Recovery Complete',
+              'Agent restored solvency. 3 steps executed.',
+              'success'
+            );
+            poll();
+            btn.disabled = false;
+            document.getElementById('btn-simulate-fail').disabled = false;
+            btn.textContent = 'Simulate Recovery';
+          }, 3500);
         } else {
-          showToast('Simulation Failed', 'Server returned an error.', 'error');
+          showToast('Simulation Failed', data.error || 'Server returned an error.', 'error');
+          btn.disabled = false;
+          document.getElementById('btn-simulate-fail').disabled = false;
+          btn.textContent = 'Simulate Recovery';
         }
       } catch (err) {
         showToast('Error', err.message, 'error');
-      } finally {
-        setSimulateLoading('btn-simulate', false);
+        btn.disabled = false;
+        document.getElementById('btn-simulate-fail').disabled = false;
+        btn.textContent = 'Simulate Recovery';
       }
     }
 
     async function simulateFailure() {
-      setSimulateLoading('btn-simulate-fail', true);
+      var btn = document.getElementById('btn-simulate-fail');
+      btn.disabled = true;
+      document.getElementById('btn-simulate').disabled = true;
+      btn.textContent = 'Triggering...';
       try {
-        const res = await fetch('api/simulate-failure', { method: 'POST' });
-        const data = await res.json();
+        var res = await fetch('api/simulate-failure', { method: 'POST' });
+        var data = await res.json();
         if (data.ok) {
           showToast(
-            'Failed Recovery Simulated',
-            'Recovery failed at step: ' + data.data.failedStep,
+            'Recovery Failed!',
+            'Agent could not restore solvency. Failed at: ' + data.data.failedStep,
             'error'
           );
           poll();
         } else {
-          showToast('Simulation Failed', 'Server returned an error.', 'error');
+          showToast('Simulation Failed', data.error || 'Server returned an error.', 'error');
         }
       } catch (err) {
         showToast('Error', err.message, 'error');
       } finally {
-        setSimulateLoading('btn-simulate-fail', false);
+        btn.disabled = false;
+        document.getElementById('btn-simulate').disabled = false;
+        btn.textContent = 'Simulate Failed Recovery';
       }
+    }
+
+    function renderRatioChart(history) {
+      var container = document.getElementById('ratio-chart');
+      if (!history || history.length < 2) {
+        container.innerHTML = '<div class="empty-state" style="font-size:0.75rem;">Waiting for data points...</div>';
+        return;
+      }
+
+      var W = 440, H = 140, PAD_L = 40, PAD_R = 10, PAD_T = 10, PAD_B = 24;
+      var plotW = W - PAD_L - PAD_R;
+      var plotH = H - PAD_T - PAD_B;
+      var maxRatio = 2; // 200%
+      var thresholdY = PAD_T + plotH - (1 / maxRatio) * plotH; // 100% line
+
+      var points = history.map(function(p, i) {
+        var x = PAD_L + (i / (history.length - 1)) * plotW;
+        var ratio = Math.min(p.ratio, maxRatio);
+        var y = PAD_T + plotH - (ratio / maxRatio) * plotH;
+        return { x: x, y: y, ratio: p.ratio };
+      });
+
+      var linePath = points.map(function(p, i) {
+        return (i === 0 ? 'M' : 'L') + p.x.toFixed(1) + ',' + p.y.toFixed(1);
+      }).join(' ');
+
+      // Build fill areas: green above threshold, red below
+      // Clip the fill to the plot area
+      var fillAbove = ''; // green area (ratio >= 100%)
+      var fillBelow = ''; // red area (ratio < 100%)
+
+      // Simple approach: one fill polygon for the whole area, colored by last value
+      var lastRatio = points[points.length - 1].ratio;
+      var fillColor = lastRatio >= 1 ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)';
+      var fillPath = linePath +
+        ' L' + points[points.length - 1].x.toFixed(1) + ',' + (PAD_T + plotH) +
+        ' L' + points[0].x.toFixed(1) + ',' + (PAD_T + plotH) + ' Z';
+
+      // Current value dot
+      var lastP = points[points.length - 1];
+      var dotColor = lastP.ratio >= 1 ? '#22c55e' : '#ef4444';
+
+      var svg = '<svg width="100%" viewBox="0 0 ' + W + ' ' + H + '" style="display:block;">' +
+        // Background
+        '<rect x="' + PAD_L + '" y="' + PAD_T + '" width="' + plotW + '" height="' + plotH + '" fill="#1a1a25" rx="4"/>' +
+        // Y-axis labels
+        '<text x="' + (PAD_L - 6) + '" y="' + (PAD_T + 4) + '" fill="#555" font-size="9" text-anchor="end" font-family="monospace">200%</text>' +
+        '<text x="' + (PAD_L - 6) + '" y="' + (thresholdY + 3) + '" fill="#8b8bff" font-size="9" text-anchor="end" font-family="monospace">100%</text>' +
+        '<text x="' + (PAD_L - 6) + '" y="' + (PAD_T + plotH + 4) + '" fill="#555" font-size="9" text-anchor="end" font-family="monospace">0%</text>' +
+        // Threshold dashed line
+        '<line x1="' + PAD_L + '" y1="' + thresholdY + '" x2="' + (PAD_L + plotW) + '" y2="' + thresholdY + '" stroke="#8b8bff" stroke-width="1" stroke-dasharray="4,3" opacity="0.5"/>' +
+        // Fill area
+        '<path d="' + fillPath + '" fill="' + fillColor + '"/>' +
+        // Line
+        '<path d="' + linePath + '" fill="none" stroke="' + dotColor + '" stroke-width="1.5"/>' +
+        // Current value dot
+        '<circle cx="' + lastP.x.toFixed(1) + '" cy="' + lastP.y.toFixed(1) + '" r="4" fill="' + dotColor + '"/>' +
+        // Current value label
+        '<text x="' + (lastP.x - 8).toFixed(1) + '" y="' + (lastP.y - 8).toFixed(1) + '" fill="' + dotColor + '" font-size="10" font-weight="bold" font-family="monospace">' + Math.round(lastP.ratio * 100) + '%</text>' +
+        // X-axis label
+        '<text x="' + (PAD_L + plotW / 2) + '" y="' + (H - 2) + '" fill="#444" font-size="9" text-anchor="middle" font-family="monospace">' + history.length + ' samples</text>' +
+        '</svg>';
+
+      container.innerHTML = svg;
     }
 
     function getStepLabel(rawName) {
@@ -1204,10 +1298,25 @@
     }
 
     function update(data) {
-      const { reserves, contract, events, agent, health, recoveries, alerts, services } = data;
+      const { reserves, contract, events, agent, health, recoveries, alerts, services, ratioHistory } = data;
 
       // Service status
       updateServicesUI(services);
+
+      // Contract address
+      if (services && services.contractAddress) {
+        var addrRow = document.getElementById('contract-addr-row');
+        var addrEl = document.getElementById('contract-addr');
+        addrRow.style.display = '';
+        var addr = services.contractAddress;
+        addrEl.textContent = addr.slice(0, 6) + '...' + addr.slice(-4);
+        addrEl.title = addr;
+      } else {
+        document.getElementById('contract-addr-row').style.display = 'none';
+      }
+
+      // Ratio chart
+      renderRatioChart(ratioHistory);
 
       // Status indicator
       const solvent = contract.isSolvent;
