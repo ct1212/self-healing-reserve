@@ -412,6 +412,83 @@ app.post('/api/simulate', async (_req, res) => {
   }
 })
 
+// POST /api/simulate-failure - Simulate a failed recovery scenario
+app.post('/api/simulate-failure', async (_req, res) => {
+  try {
+    const now = Date.now()
+
+    // Simulate undercollateralization event
+    events.push({
+      isSolvent: false,
+      timestamp: Math.floor(now / 1000),
+      blockNumber: events.length + 1,
+    })
+
+    // Simulate recovery steps with failure at trade step
+    const recoverySteps = [
+      { step: 'checkBalance' as const, success: true, timestamp: now, durationMs: 50, data: { balance: '1000 USDC' } },
+      { step: 'trade' as const, success: false, timestamp: now + 100, durationMs: 200, data: { error: 'Insufficient liquidity in pool' } },
+      { step: 'send' as const, success: false, timestamp: now + 300, durationMs: 0, data: { error: 'Skipped — previous step failed' } },
+    ]
+
+    // Add to recovery history
+    recoveryHistory.push({
+      timestamp: now,
+      success: false,
+      durationMs: 250,
+      steps: recoverySteps,
+    })
+
+    // Update agent metrics
+    if (!agentMetrics) {
+      agentMetrics = {
+        totalRecoveries: 0,
+        successfulRecoveries: 0,
+        failedRecoveries: 0,
+        successRate: 0,
+        avgResponseTimeMs: 0,
+        uptimeSeconds: 60,
+        errorCount: 0,
+        recentErrors: [],
+      }
+    }
+
+    agentMetrics.totalRecoveries++
+    agentMetrics.failedRecoveries++
+    agentMetrics.errorCount++
+    agentMetrics.successRate = (agentMetrics.successfulRecoveries / agentMetrics.totalRecoveries) * 100
+    agentMetrics.recentErrors.push({
+      step: 'trade',
+      error: 'Insufficient liquidity in pool',
+      timestamp: now,
+    })
+
+    // Keep only last 10 errors
+    if (agentMetrics.recentErrors.length > 10) {
+      agentMetrics.recentErrors = agentMetrics.recentErrors.slice(-10)
+    }
+
+    // Update health monitor
+    healthMonitor.recordAgentReport(now - 60000)
+
+    res.json({
+      ok: true,
+      message: 'Simulated failed recovery scenario',
+      data: {
+        event: 'Undercollateralization detected',
+        recovery: 'Failed at trade step',
+        failedStep: 'Execute Trade',
+        error: 'Insufficient liquidity in pool',
+        steps: 3,
+        duration: '250ms',
+      }
+    })
+  } catch (err) {
+    console.error('[simulate-failure] Error:', err)
+    res.status(500).json({ error: 'Failed to simulate recovery failure' })
+  }
+})
+
 // Background event poller
 async function pollEvents() {
   if (!CONTRACT_ADDRESS) return

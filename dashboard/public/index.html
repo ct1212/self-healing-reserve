@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Self-Healing Reserve — Live Dashboard</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect rx='15' width='100' height='100' fill='%238b8bff'/%3E%3Ctext x='50' y='68' font-size='50' text-anchor='middle' fill='white' font-family='monospace' font-weight='bold'%3ESR%3C/text%3E%3C/svg%3E">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -27,7 +28,139 @@
       text-align: center;
       color: #666;
       font-size: 0.8rem;
-      margin-bottom: 32px;
+      margin-bottom: 8px;
+    }
+
+    .description {
+      max-width: 720px;
+      margin: 0 auto 28px;
+      text-align: center;
+      color: #999;
+      font-size: 0.85rem;
+      line-height: 1.6;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+
+    /* Architecture flow */
+    .arch-flow {
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      gap: 0;
+      max-width: 1000px;
+      margin: 0 auto 32px;
+    }
+
+    .arch-step {
+      flex: 1;
+      text-align: center;
+      padding: 16px 10px;
+      background: #12121a;
+      border: 1px solid #222;
+      border-radius: 8px;
+      min-width: 0;
+    }
+
+    .arch-step-num {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: #8b8bff;
+      color: #000;
+      font-size: 0.75rem;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 8px;
+    }
+
+    .arch-label {
+      font-size: 0.78rem;
+      color: #e0e0e0;
+      font-weight: bold;
+      margin-bottom: 4px;
+    }
+
+    .arch-desc {
+      font-size: 0.68rem;
+      color: #666;
+      line-height: 1.4;
+    }
+
+    .arch-arrow {
+      display: flex;
+      align-items: center;
+      padding: 0 6px;
+      color: #8b8bff;
+      font-size: 1.2rem;
+      margin-top: 20px;
+      flex-shrink: 0;
+    }
+
+    /* Demo controls */
+    .demo-controls {
+      max-width: 1000px;
+      margin: 0 auto 24px;
+      background: #12121a;
+      border: 1px solid #222;
+      border-radius: 8px;
+      padding: 20px;
+      text-align: center;
+    }
+
+    .demo-controls h2 {
+      font-size: 0.85rem;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      margin-bottom: 8px;
+    }
+
+    .demo-desc {
+      color: #666;
+      font-size: 0.8rem;
+      margin-bottom: 16px;
+    }
+
+    .demo-btn-group {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .btn-primary {
+      background: #22c55e !important;
+      color: #000 !important;
+      font-weight: bold;
+      border-color: #22c55e !important;
+      padding: 10px 24px !important;
+      font-size: 0.85rem !important;
+    }
+
+    .btn-primary:hover {
+      background: #16a34a !important;
+      border-color: #16a34a !important;
+    }
+
+    .btn-danger-outline {
+      background: transparent !important;
+      color: #ef4444 !important;
+      font-weight: bold;
+      border-color: #ef4444 !important;
+      padding: 10px 24px !important;
+      font-size: 0.85rem !important;
+    }
+
+    .btn-danger-outline:hover {
+      background: #ef4444 !important;
+      color: #fff !important;
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
     }
 
     .grid {
@@ -117,8 +250,9 @@
       height: 8px;
       background: #1a1a25;
       border-radius: 4px;
-      overflow: hidden;
+      overflow: visible;
       margin-top: 6px;
+      position: relative;
     }
 
     .ratio-bar-fill {
@@ -130,6 +264,27 @@
     .ratio-bar-fill.healthy { background: #22c55e; }
     .ratio-bar-fill.warning { background: #eab308; }
     .ratio-bar-fill.danger { background: #ef4444; }
+
+    .ratio-threshold {
+      position: absolute;
+      left: 50%;
+      top: -6px;
+      bottom: -6px;
+      width: 2px;
+      background: #8b8bff;
+      opacity: 0.6;
+    }
+
+    .ratio-threshold-label {
+      position: absolute;
+      bottom: -18px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 0.6rem;
+      color: #8b8bff;
+      white-space: nowrap;
+      opacity: 0.7;
+    }
 
     .ratio-label {
       display: flex;
@@ -153,9 +308,19 @@
       padding: 8px 0;
       border-bottom: 1px solid #1a1a25;
       font-size: 0.85rem;
+      transition: background 0.3s ease;
     }
 
     .event-item:last-child { border-bottom: none; }
+
+    .event-item.new-event {
+      animation: flash-highlight 2s ease-out;
+    }
+
+    @keyframes flash-highlight {
+      0% { background: rgba(139, 139, 255, 0.3); }
+      100% { background: transparent; }
+    }
 
     .event-dot {
       width: 10px;
@@ -205,6 +370,7 @@
       display: flex;
       align-items: center;
       gap: 6px;
+      z-index: 100;
     }
 
     .conn-dot {
@@ -215,6 +381,8 @@
 
     .conn-dot.ok { background: #22c55e; }
     .conn-dot.err { background: #ef4444; }
+
+    .conn-poll-time { color: #555; }
 
     /* Health indicators */
     .health-grid {
@@ -276,7 +444,6 @@
     .metric-value.success { color: #22c55e; }
     .metric-value.warning { color: #eab308; }
     .metric-value.danger { color: #ef4444; }
-
     .metric-value.neutral { color: #e0e0e0; }
 
     /* Recovery steps */
@@ -319,6 +486,7 @@
 
     .step-info { flex: 1; }
     .step-name { font-size: 0.85rem; color: #e0e0e0; }
+    .step-desc { font-size: 0.7rem; color: #666; margin-top: 2px; }
     .step-duration { font-size: 0.75rem; color: #666; }
 
     /* Buttons */
@@ -397,19 +565,215 @@
       max-height: 200px;
       overflow-y: auto;
     }
+
+    /* Toast notifications */
+    .toast-container {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 1000;
+      display: flex;
+      flex-direction: column-reverse;
+      gap: 8px;
+    }
+
+    .toast {
+      padding: 14px 20px;
+      border-radius: 8px;
+      font-size: 0.82rem;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      line-height: 1.5;
+      max-width: 360px;
+      transform: translateX(120%);
+      opacity: 0;
+      transition: transform 0.3s ease, opacity 0.3s ease;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+    }
+
+    .toast.show {
+      transform: translateX(0);
+      opacity: 1;
+    }
+
+    .toast-success {
+      background: #14532d;
+      border: 1px solid #22c55e;
+      color: #bbf7d0;
+    }
+
+    .toast-error {
+      background: #450a0a;
+      border: 1px solid #ef4444;
+      color: #fecaca;
+    }
+
+    .toast-info {
+      background: #1e1b4b;
+      border: 1px solid #8b8bff;
+      color: #c7d2fe;
+    }
+
+    .toast-title {
+      font-weight: bold;
+      margin-bottom: 4px;
+    }
+
+    /* Footer */
+    .dashboard-footer {
+      max-width: 1000px;
+      margin: 32px auto 0;
+      padding: 20px 0;
+      border-top: 1px solid #1a1a25;
+      text-align: center;
+    }
+
+    .tech-badges {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+
+    .tech-badge {
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 0.7rem;
+      background: #1a1a25;
+      color: #888;
+      border: 1px solid #222;
+    }
+
+    .footer-links {
+      display: flex;
+      justify-content: center;
+      gap: 16px;
+      margin-top: 8px;
+    }
+
+    .footer-links a {
+      color: #666;
+      font-size: 0.75rem;
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+
+    .footer-links a:hover { color: #8b8bff; }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      body { padding: 16px; }
+
+      .grid {
+        grid-template-columns: 1fr;
+      }
+
+      .card.full-width {
+        grid-column: 1;
+      }
+
+      .arch-flow {
+        flex-direction: column;
+        align-items: center;
+        gap: 0;
+      }
+
+      .arch-step {
+        width: 100%;
+        max-width: 280px;
+      }
+
+      .arch-arrow {
+        transform: rotate(90deg);
+        margin: 4px 0;
+      }
+
+      .health-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .metrics-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .demo-btn-group {
+        flex-direction: column;
+        align-items: center;
+      }
+
+      .conn-status {
+        position: static;
+        justify-content: center;
+        margin-bottom: 16px;
+      }
+
+      .toast-container {
+        left: 16px;
+        right: 16px;
+        bottom: 16px;
+      }
+
+      .toast {
+        max-width: 100%;
+      }
+    }
   </style>
 </head>
 <body>
   <h1>Self-Healing Reserve</h1>
   <p class="subtitle">Live Dashboard &mdash; Chainlink CRE + Coinbase Agentic Wallet</p>
 
-  <p style="max-width: 720px; margin: 0 auto 28px; text-align: center; color: #999; font-size: 0.85rem; line-height: 1.6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
+  <p class="description">
     This system autonomously monitors and restores reserve solvency. A Chainlink CRE workflow privately verifies reserves inside a Trusted Execution Environment, publishing only a boolean attestation on-chain. When undercollateralization is detected, an autonomous agent executes recovery actions through a Coinbase agentic wallet &mdash; no human intervention required.
   </p>
+
+  <!-- Architecture Flow -->
+  <div class="arch-flow">
+    <div class="arch-step">
+      <div class="arch-step-num">1</div>
+      <div class="arch-label">Reserve API</div>
+      <div class="arch-desc">Fetches real-time reserve and liability data</div>
+    </div>
+    <div class="arch-arrow">&rarr;</div>
+    <div class="arch-step">
+      <div class="arch-step-num">2</div>
+      <div class="arch-label">TEE Verification</div>
+      <div class="arch-desc">CRE workflow privately verifies solvency inside trusted enclave</div>
+    </div>
+    <div class="arch-arrow">&rarr;</div>
+    <div class="arch-step">
+      <div class="arch-step-num">3</div>
+      <div class="arch-label">On-Chain Attestation</div>
+      <div class="arch-desc">Boolean solvency result published to smart contract</div>
+    </div>
+    <div class="arch-arrow">&rarr;</div>
+    <div class="arch-step">
+      <div class="arch-step-num">4</div>
+      <div class="arch-label">Agent Detection</div>
+      <div class="arch-desc">Monitors contract for undercollateralization events</div>
+    </div>
+    <div class="arch-arrow">&rarr;</div>
+    <div class="arch-step">
+      <div class="arch-step-num">5</div>
+      <div class="arch-label">Wallet Recovery</div>
+      <div class="arch-desc">Autonomous trade and transfer via agentic wallet</div>
+    </div>
+  </div>
 
   <div class="conn-status">
     <span class="conn-dot" id="conn-dot"></span>
     <span id="conn-label">connecting...</span>
+    <span class="conn-poll-time" id="conn-poll-time"></span>
+  </div>
+
+  <!-- Demo Controls -->
+  <div class="demo-controls">
+    <h2>Demo Controls</h2>
+    <p class="demo-desc">Trigger scenarios to see the self-healing pipeline in action.</p>
+    <div class="demo-btn-group">
+      <button id="btn-simulate" class="btn btn-primary" onclick="simulateRecovery()">Simulate Recovery</button>
+      <button id="btn-simulate-fail" class="btn btn-danger-outline" onclick="simulateFailure()">Simulate Failed Recovery</button>
+    </div>
   </div>
 
   <div class="grid">
@@ -486,6 +850,8 @@
         </div>
         <div class="ratio-bar-track">
           <div class="ratio-bar-fill" id="ratio-bar"></div>
+          <div class="ratio-threshold"></div>
+          <div class="ratio-threshold-label">Solvency Threshold</div>
         </div>
       </div>
     </div>
@@ -545,22 +911,48 @@
       </div>
       <div class="alert-providers" id="alert-providers"></div>
       <div class="btn-group">
-        <button class="btn" onclick="simulateRecovery()" style="background: #22c55e; color: #000; font-weight: bold;">🔄 Simulate Recovery</button>
         <button class="btn" onclick="testAlerts()">Test Alerts</button>
       </div>
       <div style="margin-top: 16px;">
         <div class="stat-label expandable" onclick="toggleAlertHistory()">
-          Recent Alerts ▼
+          Recent Alerts &#9660;
         </div>
         <div id="alert-history" style="display: none;" class="expanded-content"></div>
       </div>
     </div>
   </div>
 
+  <!-- Footer -->
+  <div class="dashboard-footer">
+    <div class="tech-badges">
+      <span class="tech-badge">Chainlink CRE</span>
+      <span class="tech-badge">Coinbase Agentic Wallet</span>
+      <span class="tech-badge">Solidity</span>
+      <span class="tech-badge">Hardhat</span>
+      <span class="tech-badge">TypeScript</span>
+      <span class="tech-badge">viem</span>
+    </div>
+    <div class="footer-links">
+      <a href="https://github.com/ct1212/self-healing-reserve" target="_blank">GitHub</a>
+      <a href="https://docs.chain.link/chainlink-functions" target="_blank">Chainlink Docs</a>
+      <a href="https://docs.cdp.coinbase.com/agentic-wallets/docs/welcome" target="_blank">Coinbase Agentic Wallets</a>
+    </div>
+  </div>
+
+  <!-- Toast container -->
+  <div id="toast-container" class="toast-container"></div>
+
   <script>
     const API = 'api/status';
     let lastEventCount = 0;
     let alertHistoryVisible = false;
+    let lastPollTime = null;
+
+    const STEP_LABELS = {
+      checkBalance: { name: 'Check Balance', desc: 'Verify wallet has sufficient funds' },
+      trade: { name: 'Execute Trade', desc: 'Swap assets to cover reserve shortfall' },
+      send: { name: 'Send Funds', desc: 'Transfer recovery funds to reserve' },
+    };
 
     function formatNumber(n) {
       return n.toLocaleString('en-US');
@@ -586,40 +978,116 @@
       return `${Math.floor(seconds / 86400)}d ${Math.floor((seconds % 86400) / 3600)}h`;
     }
 
+    function formatAgo(ms) {
+      if (!ms) return '';
+      const seconds = Math.floor((Date.now() - ms) / 1000);
+      if (seconds < 5) return 'just now';
+      if (seconds < 60) return `${seconds}s ago`;
+      return `${Math.floor(seconds / 60)}m ago`;
+    }
+
     function toggleAlertHistory() {
       alertHistoryVisible = !alertHistoryVisible;
       document.getElementById('alert-history').style.display = alertHistoryVisible ? 'block' : 'none';
+    }
+
+    // Toast notification system
+    function showToast(title, message, type) {
+      type = type || 'success';
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      toast.className = 'toast toast-' + type;
+      toast.innerHTML = '<div class="toast-title">' + title + '</div>' +
+        (message ? '<div>' + message + '</div>' : '');
+      container.appendChild(toast);
+
+      requestAnimationFrame(function() {
+        toast.classList.add('show');
+      });
+
+      setTimeout(function() {
+        toast.classList.remove('show');
+        setTimeout(function() { toast.remove(); }, 300);
+      }, 4000);
+    }
+
+    function setSimulateLoading(btnId, loading) {
+      var btn = document.getElementById(btnId);
+      if (!btn) return;
+      btn.disabled = loading;
+      if (btnId === 'btn-simulate') {
+        btn.textContent = loading ? 'Simulating...' : 'Simulate Recovery';
+      } else {
+        btn.textContent = loading ? 'Simulating...' : 'Simulate Failed Recovery';
+      }
     }
 
     async function testAlerts() {
       try {
         const res = await fetch('api/alerts/test', { method: 'POST' });
         const data = await res.json();
-        alert(data.ok ? 'Test alert sent!' : 'Failed to send alert');
+        if (data.ok) {
+          showToast('Test Alert Sent', 'Alert sent to all enabled channels.', 'info');
+        } else {
+          showToast('Failed', 'Could not send test alert.', 'error');
+        }
       } catch (err) {
-        alert('Error sending test alert: ' + err.message);
+        showToast('Error', err.message, 'error');
       }
     }
 
     async function simulateRecovery() {
+      setSimulateLoading('btn-simulate', true);
       try {
         const res = await fetch('api/simulate', { method: 'POST' });
         const data = await res.json();
         if (data.ok) {
-          alert('✅ Recovery simulated!\n\n' +
-                'Event: ' + data.data.event + '\n' +
-                'Recovery: ' + data.data.recovery + '\n' +
-                'Steps: ' + data.data.steps + '\n' +
-                'Duration: ' + data.data.duration + '\n\n' +
-                'Check the dashboard for updated metrics!');
-          // Trigger immediate update
+          showToast(
+            'Recovery Simulated',
+            data.data.steps + ' steps completed in ' + data.data.duration,
+            'success'
+          );
           poll();
         } else {
-          alert('Failed to simulate recovery');
+          showToast('Simulation Failed', 'Server returned an error.', 'error');
         }
       } catch (err) {
-        alert('Error simulating recovery: ' + err.message);
+        showToast('Error', err.message, 'error');
+      } finally {
+        setSimulateLoading('btn-simulate', false);
       }
+    }
+
+    async function simulateFailure() {
+      setSimulateLoading('btn-simulate-fail', true);
+      try {
+        const res = await fetch('api/simulate-failure', { method: 'POST' });
+        const data = await res.json();
+        if (data.ok) {
+          showToast(
+            'Failed Recovery Simulated',
+            'Recovery failed at step: ' + data.data.failedStep,
+            'error'
+          );
+          poll();
+        } else {
+          showToast('Simulation Failed', 'Server returned an error.', 'error');
+        }
+      } catch (err) {
+        showToast('Error', err.message, 'error');
+      } finally {
+        setSimulateLoading('btn-simulate-fail', false);
+      }
+    }
+
+    function getStepLabel(rawName) {
+      var entry = STEP_LABELS[rawName];
+      return entry ? entry.name : rawName;
+    }
+
+    function getStepDesc(rawName) {
+      var entry = STEP_LABELS[rawName];
+      return entry ? entry.desc : '';
     }
 
     function update(data) {
@@ -648,69 +1116,71 @@
       document.getElementById('ratio-value').textContent = pct + '%';
 
       const bar = document.getElementById('ratio-bar');
-      const barWidth = Math.min(pct / 2, 100); // 200% = full bar
+      const barWidth = Math.min(pct / 2, 100);
       bar.style.width = barWidth + '%';
       bar.className = 'ratio-bar-fill ' + (pct >= 100 ? 'healthy' : pct >= 80 ? 'warning' : 'danger');
 
       // Event timeline
       if (events.length !== lastEventCount) {
+        const isNew = lastEventCount > 0;
+        const newCount = events.length - lastEventCount;
         lastEventCount = events.length;
         const tl = document.getElementById('event-timeline');
         if (events.length === 0) {
           tl.innerHTML = '<div class="empty-state">Waiting for events...</div>';
         } else {
-          tl.innerHTML = events.slice().reverse().map(e =>
-            `<div class="event-item">
-              <span class="event-dot ${e.isSolvent ? 'solvent' : 'insolvent'}"></span>
-              <span class="event-time">${formatTime(e.timestamp)}</span>
-              <span>${e.isSolvent ? 'Solvent' : 'Undercollateralized'}</span>
-              <span class="event-block">block #${e.blockNumber}</span>
-            </div>`
-          ).join('');
+          tl.innerHTML = events.slice().reverse().map(function(e, i) {
+            var cls = (isNew && i < newCount) ? ' new-event' : '';
+            return '<div class="event-item' + cls + '">' +
+              '<span class="event-dot ' + (e.isSolvent ? 'solvent' : 'insolvent') + '"></span>' +
+              '<span class="event-time">' + formatTime(e.timestamp) + '</span>' +
+              '<span>' + (e.isSolvent ? 'Solvent' : 'Undercollateralized') + '</span>' +
+              '<span class="event-block">block #' + e.blockNumber + '</span>' +
+            '</div>';
+          }).join('');
+
+          // Auto-scroll to top to show newest events
+          tl.scrollTop = 0;
         }
       }
 
       // Agent activity
       const actEl = document.getElementById('agent-activity');
       if (agent.activities && agent.activities.length > 0) {
-        actEl.innerHTML = agent.activities.slice().reverse().map(a =>
-          `<div class="activity-item">
-            <span class="activity-action">${a.action}</span>
-            <span class="activity-time">${formatTime(a.timestamp)}</span>
-            ${a.details ? `<div class="activity-details">${a.details}</div>` : ''}
-          </div>`
-        ).join('');
+        actEl.innerHTML = agent.activities.slice().reverse().map(function(a) {
+          return '<div class="activity-item">' +
+            '<span class="activity-action">' + a.action + '</span>' +
+            '<span class="activity-time">' + formatTime(a.timestamp) + '</span>' +
+            (a.details ? '<div class="activity-details">' + a.details + '</div>' : '') +
+          '</div>';
+        }).join('');
       }
 
       // System Health
       if (health) {
-        // API
         const apiDot = document.getElementById('health-api-dot');
         const apiStatus = document.getElementById('health-api-status');
         const apiLatency = document.getElementById('health-api-latency');
         apiDot.className = 'health-dot ' + (health.api.healthy ? 'healthy' : 'unhealthy');
         apiStatus.textContent = health.api.healthy ? 'Healthy' : (health.api.error || 'Unhealthy');
-        apiLatency.textContent = health.api.latency ? `${health.api.latency}ms` : '';
+        apiLatency.textContent = health.api.latency ? health.api.latency + 'ms' : '';
 
-        // Blockchain
         const bcDot = document.getElementById('health-blockchain-dot');
         const bcStatus = document.getElementById('health-blockchain-status');
         const bcLatency = document.getElementById('health-blockchain-latency');
         bcDot.className = 'health-dot ' + (health.blockchain.healthy ? 'healthy' : 'unhealthy');
         bcStatus.textContent = health.blockchain.healthy
-          ? `Block #${health.blockchain.currentBlock || '?'}`
+          ? 'Block #' + (health.blockchain.currentBlock || '?')
           : (health.blockchain.error || 'Unhealthy');
-        bcLatency.textContent = health.blockchain.latency ? `${health.blockchain.latency}ms` : '';
+        bcLatency.textContent = health.blockchain.latency ? health.blockchain.latency + 'ms' : '';
 
-        // Agent
         const agentDot = document.getElementById('health-agent-dot');
         const agentStatus = document.getElementById('health-agent-status');
         const agentUptime = document.getElementById('health-agent-uptime');
         agentDot.className = 'health-dot ' + (health.agent.healthy ? 'healthy' : 'unhealthy');
         agentStatus.textContent = health.agent.healthy ? 'Active' : (health.agent.error || 'Inactive');
-        agentUptime.textContent = health.agent.uptime ? `Uptime: ${formatUptime(Math.floor(health.agent.uptime / 1000))}` : '';
+        agentUptime.textContent = health.agent.uptime ? 'Uptime: ' + formatUptime(Math.floor(health.agent.uptime / 1000)) : '';
 
-        // Update connection indicator based on overall health
         const connDot = document.getElementById('conn-dot');
         const connLabel = document.getElementById('conn-label');
         const allHealthy = health.api.healthy && health.blockchain.healthy && health.agent.healthy;
@@ -723,68 +1193,67 @@
         const m = agent.metrics;
         const successRateClass = m.successRate >= 90 ? 'success' : m.successRate >= 70 ? 'warning' : 'danger';
 
-        document.getElementById('agent-metrics-content').innerHTML = `
-          <div class="metrics-grid">
-            <div class="metric-box">
-              <div class="metric-label">Success Rate</div>
-              <div class="metric-value ${successRateClass}">${m.successRate.toFixed(1)}%</div>
-            </div>
-            <div class="metric-box">
-              <div class="metric-label">Avg Response</div>
-              <div class="metric-value neutral">${formatDuration(m.avgResponseTimeMs)}</div>
-            </div>
-            <div class="metric-box">
-              <div class="metric-label">Total Recoveries</div>
-              <div class="metric-value neutral">${m.totalRecoveries}</div>
-            </div>
-            <div class="metric-box">
-              <div class="metric-label">Errors</div>
-              <div class="metric-value ${m.errorCount > 0 ? 'danger' : 'neutral'}">${m.errorCount}</div>
-            </div>
-          </div>
-          ${m.recentErrors && m.recentErrors.length > 0 ? `
-            <div style="margin-top: 12px;">
-              <div class="stat-label expandable" onclick="toggleErrors()">Recent Errors (${m.recentErrors.length}) ▼</div>
-              <div id="recent-errors" style="display: none; margin-top: 8px; max-height: 150px; overflow-y: auto;">
-                ${m.recentErrors.slice().reverse().map(e => `
-                  <div style="padding: 6px; background: #1a1a25; border-left: 2px solid #ef4444; margin-bottom: 4px; font-size: 0.75rem;">
-                    <div style="color: #ef4444; font-weight: bold;">${e.step}</div>
-                    <div style="color: #999; margin-top: 2px;">${e.error}</div>
-                    <div style="color: #666; margin-top: 2px;">${new Date(e.timestamp).toLocaleString()}</div>
-                  </div>
-                `).join('')}
-              </div>
-            </div>
-          ` : ''}
-        `;
+        document.getElementById('agent-metrics-content').innerHTML =
+          '<div class="metrics-grid">' +
+            '<div class="metric-box">' +
+              '<div class="metric-label">Success Rate</div>' +
+              '<div class="metric-value ' + successRateClass + '">' + m.successRate.toFixed(1) + '%</div>' +
+            '</div>' +
+            '<div class="metric-box">' +
+              '<div class="metric-label">Avg Response</div>' +
+              '<div class="metric-value neutral">' + formatDuration(m.avgResponseTimeMs) + '</div>' +
+            '</div>' +
+            '<div class="metric-box">' +
+              '<div class="metric-label">Total Recoveries</div>' +
+              '<div class="metric-value neutral">' + m.totalRecoveries + '</div>' +
+            '</div>' +
+            '<div class="metric-box">' +
+              '<div class="metric-label">Errors</div>' +
+              '<div class="metric-value ' + (m.errorCount > 0 ? 'danger' : 'neutral') + '">' + m.errorCount + '</div>' +
+            '</div>' +
+          '</div>' +
+          (m.recentErrors && m.recentErrors.length > 0 ?
+            '<div style="margin-top: 12px;">' +
+              '<div class="stat-label expandable" onclick="toggleErrors()">Recent Errors (' + m.recentErrors.length + ') &#9660;</div>' +
+              '<div id="recent-errors" style="display: none; margin-top: 8px; max-height: 150px; overflow-y: auto;">' +
+                m.recentErrors.slice().reverse().map(function(e) {
+                  return '<div style="padding: 6px; background: #1a1a25; border-left: 2px solid #ef4444; margin-bottom: 4px; font-size: 0.75rem;">' +
+                    '<div style="color: #ef4444; font-weight: bold;">' + e.step + '</div>' +
+                    '<div style="color: #999; margin-top: 2px;">' + e.error + '</div>' +
+                    '<div style="color: #666; margin-top: 2px;">' + new Date(e.timestamp).toLocaleString() + '</div>' +
+                  '</div>';
+                }).join('') +
+              '</div>' +
+            '</div>'
+          : '');
       }
 
-      // Recovery Strategies
+      // Recovery Strategies (with human-friendly labels)
       if (recoveries && recoveries.length > 0) {
         const latest = recoveries[recoveries.length - 1];
-        const stepsHtml = latest.steps.map(s => `
-          <div class="recovery-step">
-            <div class="step-icon ${s.success ? 'success' : 'failure'}">
-              ${s.success ? '✓' : '✗'}
-            </div>
-            <div class="step-info">
-              <div class="step-name">${s.step}</div>
-              <div class="step-duration">${s.durationMs ? formatDuration(s.durationMs) : ''}</div>
-            </div>
-          </div>
-        `).join('');
+        const stepsHtml = latest.steps.map(function(s) {
+          return '<div class="recovery-step">' +
+            '<div class="step-icon ' + (s.success ? 'success' : 'failure') + '">' +
+              (s.success ? '&#10003;' : '&#10007;') +
+            '</div>' +
+            '<div class="step-info">' +
+              '<div class="step-name">' + getStepLabel(s.step) + '</div>' +
+              '<div class="step-desc">' + getStepDesc(s.step) + '</div>' +
+              '<div class="step-duration">' + (s.durationMs ? formatDuration(s.durationMs) : '') + '</div>' +
+            '</div>' +
+          '</div>';
+        }).join('');
 
-        document.getElementById('recovery-steps').innerHTML = `
-          <div style="margin-bottom: 12px;">
-            <div class="stat-row">
-              <span class="stat-label">Latest Recovery</span>
-              <span class="stat-value ${latest.success ? 'success' : 'danger'}">
-                ${latest.success ? 'Success' : 'Failed'} (${formatDuration(latest.durationMs)})
-              </span>
-            </div>
-          </div>
-          ${stepsHtml}
-        `;
+        document.getElementById('recovery-steps').innerHTML =
+          '<div style="margin-bottom: 12px;">' +
+            '<div class="stat-row">' +
+              '<span class="stat-label">Latest Recovery</span>' +
+              '<span class="stat-value ' + (latest.success ? 'success' : 'danger') + '">' +
+                (latest.success ? 'Success' : 'Failed') + ' (' + formatDuration(latest.durationMs) + ')' +
+              '</span>' +
+            '</div>' +
+          '</div>' +
+          stepsHtml;
       }
 
       // Alerts
@@ -792,21 +1261,21 @@
         document.getElementById('alerts-status').textContent = alerts.config.enabled ? 'Enabled' : 'Disabled';
 
         const providers = [];
-        if (alerts.config.emailEnabled) providers.push('<span class="provider-badge enabled">Email ✓</span>');
-        if (alerts.config.slackEnabled) providers.push('<span class="provider-badge enabled">Slack ✓</span>');
-        if (alerts.config.discordEnabled) providers.push('<span class="provider-badge enabled">Discord ✓</span>');
+        if (alerts.config.emailEnabled) providers.push('<span class="provider-badge enabled">Email</span>');
+        if (alerts.config.slackEnabled) providers.push('<span class="provider-badge enabled">Slack</span>');
+        if (alerts.config.discordEnabled) providers.push('<span class="provider-badge enabled">Discord</span>');
         if (providers.length === 0) providers.push('<span class="provider-badge disabled">No providers configured</span>');
 
         document.getElementById('alert-providers').innerHTML = providers.join('');
 
         if (alerts.recent && alerts.recent.length > 0) {
-          document.getElementById('alert-history').innerHTML = alerts.recent.slice().reverse().map(a => `
-            <div class="alert-item">
-              <div class="alert-type">${a.type}</div>
-              <div class="alert-message">${a.message}</div>
-              <div class="alert-time">${new Date(a.timestamp).toLocaleString()}</div>
-            </div>
-          `).join('');
+          document.getElementById('alert-history').innerHTML = alerts.recent.slice().reverse().map(function(a) {
+            return '<div class="alert-item">' +
+              '<div class="alert-type">' + a.type + '</div>' +
+              '<div class="alert-message">' + a.message + '</div>' +
+              '<div class="alert-time">' + new Date(a.timestamp).toLocaleString() + '</div>' +
+            '</div>';
+          }).join('');
         } else {
           document.getElementById('alert-history').innerHTML = '<div class="empty-state">No alerts yet</div>';
         }
@@ -816,6 +1285,14 @@
     function toggleErrors() {
       const el = document.getElementById('recent-errors');
       el.style.display = el.style.display === 'none' ? 'block' : 'none';
+    }
+
+    // Update "last polled" display
+    function updatePollTime() {
+      const el = document.getElementById('conn-poll-time');
+      if (lastPollTime) {
+        el.textContent = '· ' + formatAgo(lastPollTime);
+      }
     }
 
     async function poll() {
@@ -829,6 +1306,7 @@
         update(data);
         connDot.className = 'conn-dot ok';
         connLabel.textContent = 'connected';
+        lastPollTime = Date.now();
       } catch {
         connDot.className = 'conn-dot err';
         connLabel.textContent = 'disconnected';
@@ -837,6 +1315,7 @@
 
     poll();
     setInterval(poll, 2000);
+    setInterval(updatePollTime, 1000);
   </script>
 </body>
 </html>
