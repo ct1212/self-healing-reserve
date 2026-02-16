@@ -93,6 +93,12 @@ let overrideReserves: {
   expiresAt: number
 } | null = null
 
+// Override attestation status during simulations (null = use real contract)
+let overrideAttestation: {
+  isSolvent: boolean
+  expiresAt: number
+} | null = null
+
 // Serve static files
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 app.use(express.static(path.join(__dirname, 'public')))
@@ -195,9 +201,19 @@ app.get('/api/status', async (_req, res) => {
       }
     }
 
-    // Read contract state
+    // Check if attestation override is active and not expired
+    if (overrideAttestation && Date.now() > overrideAttestation.expiresAt) {
+      overrideAttestation = null
+    }
+
+    // Read contract state (or use override during simulations)
     let contract = { isSolvent: true, lastUpdated: 0 }
-    if (CONTRACT_ADDRESS) {
+    if (overrideAttestation) {
+      contract = {
+        isSolvent: overrideAttestation.isSolvent,
+        lastUpdated: Math.floor(Date.now() / 1000),
+      }
+    } else if (CONTRACT_ADDRESS) {
       try {
         const client = createPublicClient({
           chain: hardhat,
@@ -505,6 +521,12 @@ app.post('/api/simulate', async (_req, res) => {
       expiresAt: now + 10_000,
     }
 
+    // Also override attestation status to match
+    overrideAttestation = {
+      isSolvent: false,
+      expiresAt: now + 10_000,
+    }
+
     // Record undercollateralization event
     events.push({
       isSolvent: false,
@@ -529,8 +551,9 @@ app.post('/api/simulate', async (_req, res) => {
     // After 3 seconds, trigger recovery
     setTimeout(async () => {
       try {
-        // Clear override — reverts to Chainlink data
+        // Clear overrides — reverts to Chainlink data + real contract
         overrideReserves = null
+        overrideAttestation = null
 
         const recoveryTime = Date.now()
 
@@ -615,6 +638,12 @@ app.post('/api/simulate-failure', async (_req, res) => {
     overrideReserves = {
       totalReserve: droppedReserve,
       totalLiabilities: liabilities,
+      isSolvent: false,
+      expiresAt: now + 15_000,
+    }
+
+    // Also override attestation status to match
+    overrideAttestation = {
       isSolvent: false,
       expiresAt: now + 15_000,
     }
