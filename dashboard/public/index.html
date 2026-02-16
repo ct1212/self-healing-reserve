@@ -493,8 +493,8 @@
         <div class="empty-state">Waiting for events...</div>
       </div>
       <div class="btn-group">
-        <a href="/api/export/events.json" class="btn" download>Download JSON</a>
-        <a href="/api/export/events.csv" class="btn" download>Download CSV</a>
+        <a href="api/export/events.json" class="btn" download>Download JSON</a>
+        <a href="api/export/events.csv" class="btn" download>Download CSV</a>
       </div>
     </div>
 
@@ -527,8 +527,8 @@
         <div class="empty-state">No recovery actions yet.</div>
       </div>
       <div class="btn-group">
-        <a href="/api/export/activities.json" class="btn" download>Download JSON</a>
-        <a href="/api/export/activities.csv" class="btn" download>Download CSV</a>
+        <a href="api/export/activities.json" class="btn" download>Download JSON</a>
+        <a href="api/export/activities.csv" class="btn" download>Download CSV</a>
       </div>
     </div>
 
@@ -554,7 +554,7 @@
   </div>
 
   <script>
-    const API = '/api/status';
+    const API = 'api/status';
     let lastEventCount = 0;
     let alertHistoryVisible = false;
 
@@ -589,7 +589,7 @@
 
     async function testAlerts() {
       try {
-        const res = await fetch('/api/alerts/test', { method: 'POST' });
+        const res = await fetch('api/alerts/test', { method: 'POST' });
         const data = await res.json();
         alert(data.ok ? 'Test alert sent!' : 'Failed to send alert');
       } catch (err) {
@@ -599,7 +599,7 @@
 
     async function simulateRecovery() {
       try {
-        const res = await fetch('/api/simulate', { method: 'POST' });
+        const res = await fetch('api/simulate', { method: 'POST' });
         const data = await res.json();
         if (data.ok) {
           alert('✅ Recovery simulated!\n\n' +
