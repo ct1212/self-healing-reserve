@@ -479,17 +479,28 @@ app.post('/api/alerts/test', async (_req, res) => {
 })
 
 // POST /api/simulate - Simulate a recovery scenario
-// Sets override reserves to insolvent, then clears after 3s recovery
+// Snapshots real Chainlink data, drops ratio to 95%, then recovers to 105%
 app.post('/api/simulate', async (_req, res) => {
   try {
     const now = Date.now()
-    const simulatedReserve = 800_000
-    const simulatedLiabilities = 1_000_000
+
+    // Snapshot real Chainlink data
+    const cl = await fetchChainlinkData()
+    const realReserve = Number(cl.answer)
+    const feedDesc = cl.description
+
+    // Math: normal liabilities = realReserve * 0.95 (so normal ratio ≈ 105%)
+    const liabilities = realReserve * EXPECTED_RESERVES_MULTIPLIER
+    // Drop reserve to 95% of liabilities
+    const droppedReserve = liabilities * 0.95
+    // Recovery target: 105% collateralization
+    const targetReserve = liabilities * 1.05
+    const recoveryAmount = targetReserve - droppedReserve
 
     // Set override to insolvent (expires after 10s as safety net)
     overrideReserves = {
-      totalReserve: simulatedReserve,
-      totalLiabilities: simulatedLiabilities,
+      totalReserve: droppedReserve,
+      totalLiabilities: liabilities,
       isSolvent: false,
       expiresAt: now + 10_000,
     }
@@ -501,16 +512,17 @@ app.post('/api/simulate', async (_req, res) => {
       blockNumber: events.length + 1,
     })
 
-    const ratio = Math.round((simulatedReserve / simulatedLiabilities) * 100)
+    const ratio = Math.round((droppedReserve / liabilities) * 100)
 
     // Respond immediately so frontend can show insolvent state
     res.json({
       ok: true,
       phase: 'undercollateralized',
       data: {
-        totalReserve: simulatedReserve,
-        totalLiabilities: simulatedLiabilities,
+        totalReserve: droppedReserve,
+        totalLiabilities: liabilities,
         ratio,
+        feedDescription: feedDesc,
       },
     })
 
@@ -522,11 +534,14 @@ app.post('/api/simulate', async (_req, res) => {
 
         const recoveryTime = Date.now()
 
-        // Record recovery steps
+        // Record recovery steps with real amounts
         const recoverySteps = [
-          { step: 'checkBalance' as const, success: true, timestamp: recoveryTime, durationMs: 50, data: { balance: '1000 USDC' } },
-          { step: 'trade' as const, success: true, timestamp: recoveryTime + 100, durationMs: 150, data: { amount: '0.01 ETH → 10 USDC' } },
-          { step: 'send' as const, success: true, timestamp: recoveryTime + 300, durationMs: 100, data: { tx: '0x123...' } },
+          { step: 'checkBalance' as const, success: true, timestamp: recoveryTime, durationMs: 50,
+            data: { balance: Number(cl.answer).toLocaleString('en-US', { maximumFractionDigits: 2 }) + ' available in wallet' } },
+          { step: 'trade' as const, success: true, timestamp: recoveryTime + 100, durationMs: 150,
+            data: { amount: recoveryAmount.toLocaleString('en-US', { maximumFractionDigits: 2 }) + ' acquired via DEX swap' } },
+          { step: 'send' as const, success: true, timestamp: recoveryTime + 300, durationMs: 100,
+            data: { amount: recoveryAmount.toLocaleString('en-US', { maximumFractionDigits: 2 }) + ' committed to reserve fund', tx: '0x' + Math.random().toString(16).slice(2, 10) + '...' } },
         ]
 
         recoveryHistory.push({
@@ -534,6 +549,13 @@ app.post('/api/simulate', async (_req, res) => {
           success: true,
           durationMs: 300,
           steps: recoverySteps,
+          summary: {
+            shortfall: liabilities - droppedReserve,
+            recoveryAmount,
+            fromRatio: 95,
+            toRatio: 105,
+            feedDescription: feedDesc,
+          },
         })
 
         // Record solvent event
@@ -573,17 +595,26 @@ app.post('/api/simulate', async (_req, res) => {
 })
 
 // POST /api/simulate-failure - Simulate a failed recovery scenario
-// Sets override to insolvent and stays there (expires after 15s)
+// Snapshots real Chainlink data, drops ratio to 95%, recovery fails
 app.post('/api/simulate-failure', async (_req, res) => {
   try {
     const now = Date.now()
-    const simulatedReserve = 800_000
-    const simulatedLiabilities = 1_000_000
+
+    // Snapshot real Chainlink data
+    const cl = await fetchChainlinkData()
+    const realReserve = Number(cl.answer)
+    const feedDesc = cl.description
+
+    // Same math as simulate
+    const liabilities = realReserve * EXPECTED_RESERVES_MULTIPLIER
+    const droppedReserve = liabilities * 0.95
+    const targetReserve = liabilities * 1.05
+    const recoveryAmount = targetReserve - droppedReserve
 
     // Set override to insolvent (expires after 15s)
     overrideReserves = {
-      totalReserve: simulatedReserve,
-      totalLiabilities: simulatedLiabilities,
+      totalReserve: droppedReserve,
+      totalLiabilities: liabilities,
       isSolvent: false,
       expiresAt: now + 15_000,
     }
@@ -595,11 +626,14 @@ app.post('/api/simulate-failure', async (_req, res) => {
       blockNumber: events.length + 1,
     })
 
-    // Record failed recovery steps
+    // Record failed recovery steps with real amounts
     const recoverySteps = [
-      { step: 'checkBalance' as const, success: true, timestamp: now, durationMs: 50, data: { balance: '1000 USDC' } },
-      { step: 'trade' as const, success: false, timestamp: now + 100, durationMs: 200, data: { error: 'Insufficient liquidity in pool' } },
-      { step: 'send' as const, success: false, timestamp: now + 300, durationMs: 0, data: { error: 'Skipped — previous step failed' } },
+      { step: 'checkBalance' as const, success: true, timestamp: now, durationMs: 50,
+        data: { balance: Number(cl.answer).toLocaleString('en-US', { maximumFractionDigits: 2 }) + ' available in wallet' } },
+      { step: 'trade' as const, success: false, timestamp: now + 100, durationMs: 200,
+        data: { error: 'Insufficient liquidity — needed ' + recoveryAmount.toLocaleString('en-US', { maximumFractionDigits: 2 }) + ' but pool depth insufficient' } },
+      { step: 'send' as const, success: false, timestamp: now + 300, durationMs: 0,
+        data: { error: 'Skipped — previous step failed' } },
     ]
 
     recoveryHistory.push({
@@ -607,6 +641,13 @@ app.post('/api/simulate-failure', async (_req, res) => {
       success: false,
       durationMs: 250,
       steps: recoverySteps,
+      summary: {
+        shortfall: liabilities - droppedReserve,
+        recoveryAmount,
+        fromRatio: 95,
+        toRatio: 105,
+        feedDescription: feedDesc,
+      },
     })
 
     // Update agent metrics
@@ -644,10 +685,11 @@ app.post('/api/simulate-failure', async (_req, res) => {
       ok: true,
       phase: 'failed',
       data: {
-        totalReserve: simulatedReserve,
-        totalLiabilities: simulatedLiabilities,
+        totalReserve: droppedReserve,
+        totalLiabilities: liabilities,
         failedStep: 'Execute Trade',
         error: 'Insufficient liquidity in pool',
+        feedDescription: feedDesc,
       },
     })
   } catch (err) {
