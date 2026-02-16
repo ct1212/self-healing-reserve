@@ -618,6 +618,20 @@
       margin-bottom: 4px;
     }
 
+    /* Service status dots */
+    .svc-dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #555;
+      margin-right: 4px;
+      vertical-align: middle;
+    }
+
+    .svc-dot.running { background: #22c55e; }
+    .svc-dot.stopped { background: #555; }
+
     /* Footer */
     .dashboard-footer {
       max-width: 1000px;
@@ -764,6 +778,23 @@
     <span class="conn-dot" id="conn-dot"></span>
     <span id="conn-label">connecting...</span>
     <span class="conn-poll-time" id="conn-poll-time"></span>
+  </div>
+
+  <!-- Service Controls -->
+  <div class="demo-controls">
+    <h2>Services</h2>
+    <p class="demo-desc" id="services-desc">Start the backend stack (Hardhat, contract, mock API, agent) to enable live data.</p>
+    <div class="demo-btn-group" style="margin-bottom: 12px;">
+      <button id="btn-start" class="btn btn-primary" onclick="startServices()">Start Services</button>
+      <button id="btn-stop" class="btn btn-danger-outline" onclick="stopServices()" style="display:none;">Stop Services</button>
+    </div>
+    <div id="services-status" style="display:none; margin-top: 8px;">
+      <div style="display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; font-size: 0.8rem;">
+        <span><span class="svc-dot" id="svc-hardhat"></span> Hardhat</span>
+        <span><span class="svc-dot" id="svc-mock-api"></span> Mock API</span>
+        <span><span class="svc-dot" id="svc-agent"></span> Agent</span>
+      </div>
+    </div>
   </div>
 
   <!-- Demo Controls -->
@@ -1036,6 +1067,88 @@
       }
     }
 
+    async function startServices() {
+      var btn = document.getElementById('btn-start');
+      btn.disabled = true;
+      btn.textContent = 'Starting...';
+      showToast('Starting Services', 'Launching Hardhat, deploying contract, starting API and agent...', 'info');
+
+      try {
+        var res = await fetch('api/start-services', { method: 'POST' });
+        var data = await res.json();
+        if (data.ok) {
+          showToast('Services Running', 'All services started. Contract: ' + data.contractAddress, 'success');
+          poll();
+        } else {
+          showToast('Start Failed', data.error || 'Unknown error', 'error');
+        }
+      } catch (err) {
+        showToast('Error', err.message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Start Services';
+      }
+    }
+
+    async function stopServices() {
+      var btn = document.getElementById('btn-stop');
+      btn.disabled = true;
+      btn.textContent = 'Stopping...';
+
+      try {
+        var res = await fetch('api/stop-services', { method: 'POST' });
+        var data = await res.json();
+        if (data.ok) {
+          showToast('Services Stopped', 'All backend services have been stopped.', 'info');
+          poll();
+        } else {
+          showToast('Stop Failed', data.error || 'Unknown error', 'error');
+        }
+      } catch (err) {
+        showToast('Error', err.message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Stop Services';
+      }
+    }
+
+    function updateServicesUI(services) {
+      if (!services) return;
+
+      var startBtn = document.getElementById('btn-start');
+      var stopBtn = document.getElementById('btn-stop');
+      var statusEl = document.getElementById('services-status');
+      var descEl = document.getElementById('services-desc');
+      var anyRunning = services.hardhat || services.mockApi || services.agent;
+
+      if (anyRunning) {
+        startBtn.style.display = 'none';
+        stopBtn.style.display = '';
+        statusEl.style.display = '';
+        descEl.textContent = services.contractAddress
+          ? 'Backend stack running. Contract: ' + services.contractAddress
+          : 'Backend stack running.';
+      } else if (services.starting) {
+        startBtn.style.display = '';
+        startBtn.disabled = true;
+        startBtn.textContent = 'Starting...';
+        stopBtn.style.display = 'none';
+        statusEl.style.display = 'none';
+        descEl.textContent = 'Starting services...';
+      } else {
+        startBtn.style.display = '';
+        startBtn.disabled = false;
+        startBtn.textContent = 'Start Services';
+        stopBtn.style.display = 'none';
+        statusEl.style.display = 'none';
+        descEl.textContent = 'Start the backend stack (Hardhat, contract, mock API, agent) to enable live data.';
+      }
+
+      document.getElementById('svc-hardhat').className = 'svc-dot ' + (services.hardhat ? 'running' : 'stopped');
+      document.getElementById('svc-mock-api').className = 'svc-dot ' + (services.mockApi ? 'running' : 'stopped');
+      document.getElementById('svc-agent').className = 'svc-dot ' + (services.agent ? 'running' : 'stopped');
+    }
+
     async function simulateRecovery() {
       setSimulateLoading('btn-simulate', true);
       try {
@@ -1091,7 +1204,10 @@
     }
 
     function update(data) {
-      const { reserves, contract, events, agent, health, recoveries, alerts } = data;
+      const { reserves, contract, events, agent, health, recoveries, alerts, services } = data;
+
+      // Service status
+      updateServicesUI(services);
 
       // Status indicator
       const solvent = contract.isSolvent;

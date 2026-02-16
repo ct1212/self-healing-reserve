@@ -1,9 +1,11 @@
 import express from 'express'
 import path from 'path'
 import { fileURLToPath } from 'url'
+import { spawn, execSync, type ChildProcess } from 'child_process'
 import { createPublicClient, http } from 'viem'
 import { hardhat } from 'viem/chains'
 import { ReserveAttestation } from '../contracts/abi/ReserveAttestation'
+import { deployContract } from '../demo/deploy-contract'
 import { HealthMonitor } from './health'
 import { AlertManager } from './alerts'
 
@@ -12,7 +14,7 @@ app.use(express.json())
 
 const RPC_URL = process.env.RPC_URL || 'http://127.0.0.1:8545'
 const API_URL = process.env.MOCK_API_URL || 'http://127.0.0.1:3001'
-const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS as `0x${string}` | undefined
+let CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS as `0x${string}` | undefined
 const PORT = process.env.DASHBOARD_PORT || 3002
 const PUBLIC_URL = process.env.PUBLIC_URL || process.env.VPS_IP || '76.13.177.213'
 const BIND_HOST = process.env.BIND_HOST || '127.0.0.1' // Localhost only for production security
@@ -106,6 +108,7 @@ app.get('/api/status', async (_req, res) => {
         config: alertManager.getConfig(),
         recent: alertManager.getHistory(10),
       },
+      services: getServicesStatus(),
     })
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch status' })
@@ -489,54 +492,190 @@ app.post('/api/simulate-failure', async (_req, res) => {
   }
 })
 
-// Background event poller
-async function pollEvents() {
-  if (!CONTRACT_ADDRESS) return
+// ── Service process management ──────────────────────────────────────────
+const PROJECT_ROOT = path.resolve(__dirname, '..')
+const serviceProcs: Map<string, ChildProcess> = new Map()
+let servicesStarting = false
 
-  const client = createPublicClient({
-    chain: hardhat,
-    transport: http(RPC_URL),
+function isServiceRunning(name: string): boolean {
+  const proc = serviceProcs.get(name)
+  return proc != null && proc.exitCode === null
+}
+
+function stopAllServices() {
+  for (const [, proc] of serviceProcs) {
+    try { proc.kill('SIGTERM') } catch {}
+  }
+  serviceProcs.clear()
+}
+
+function freePort(port: number) {
+  try {
+    execSync(`fuser -k ${port}/tcp 2>/dev/null`, { stdio: 'ignore' })
+  } catch {}
+}
+
+function waitForService(url: string, timeoutMs = 20000): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const start = Date.now()
+    const check = async () => {
+      try {
+        const isRpc = url.includes('8545')
+        const res = isRpc
+          ? await fetch(url, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ jsonrpc: '2.0', method: 'eth_blockNumber', params: [], id: 1 }),
+            })
+          : await fetch(url)
+        if (res.ok) return resolve()
+      } catch {}
+      if (Date.now() - start > timeoutMs) return reject(new Error(`Timed out waiting for ${url}`))
+      setTimeout(check, 500)
+    }
+    check()
   })
+}
 
+function getServicesStatus() {
+  return {
+    starting: servicesStarting,
+    hardhat: isServiceRunning('hardhat'),
+    mockApi: isServiceRunning('mock-api'),
+    agent: isServiceRunning('agent'),
+    contractAddress: CONTRACT_ADDRESS || null,
+  }
+}
+
+// POST /api/start-services — start Hardhat, deploy contract, start mock-api & agent
+app.post('/api/start-services', async (_req, res) => {
+  if (servicesStarting) return res.status(409).json({ error: 'Services are already starting' })
+  if (isServiceRunning('hardhat')) return res.status(409).json({ error: 'Services are already running. Stop them first.' })
+
+  servicesStarting = true
+  const steps: string[] = []
+
+  try {
+    // Free ports
+    freePort(8545)
+    freePort(3001)
+    await new Promise(r => setTimeout(r, 500))
+
+    // 1. Start Hardhat
+    steps.push('Starting Hardhat node...')
+    const hardhatProc = spawn('npx', ['hardhat', 'node'], {
+      cwd: PROJECT_ROOT,
+      stdio: ['pipe', 'pipe', 'pipe'],
+    })
+    serviceProcs.set('hardhat', hardhatProc)
+    hardhatProc.on('exit', () => serviceProcs.delete('hardhat'))
+    await waitForService('http://127.0.0.1:8545')
+    steps.push('Hardhat node ready')
+
+    // 2. Deploy contract
+    steps.push('Deploying contract...')
+    const addr = await deployContract('http://127.0.0.1:8545')
+    CONTRACT_ADDRESS = addr
+    process.env.CONTRACT_ADDRESS = addr
+    steps.push(`Contract deployed: ${addr}`)
+
+    // 3. Start mock API
+    steps.push('Starting mock API...')
+    const mockProc = spawn('npx', ['tsx', 'mock-api/server.ts'], {
+      cwd: PROJECT_ROOT,
+      stdio: ['pipe', 'pipe', 'pipe'],
+    })
+    serviceProcs.set('mock-api', mockProc)
+    mockProc.on('exit', () => serviceProcs.delete('mock-api'))
+    await waitForService('http://127.0.0.1:3001/state')
+    steps.push('Mock API ready')
+
+    // 4. Start agent
+    steps.push('Starting agent...')
+    const agentProc = spawn('npx', ['tsx', 'agent/index.ts'], {
+      cwd: PROJECT_ROOT,
+      stdio: ['pipe', 'pipe', 'pipe'],
+      env: {
+        ...process.env,
+        AWAL_DRY_RUN: 'true',
+        CONTRACT_ADDRESS: addr,
+        RPC_URL: RPC_URL,
+      },
+    })
+    serviceProcs.set('agent', agentProc)
+    agentProc.on('exit', () => serviceProcs.delete('agent'))
+    steps.push('Agent started')
+
+    console.log('[dashboard] All services started. Contract:', addr)
+    res.json({ ok: true, steps, contractAddress: addr })
+  } catch (err: any) {
+    console.error('[dashboard] Failed to start services:', err)
+    stopAllServices()
+    res.status(500).json({ error: err.message, steps })
+  } finally {
+    servicesStarting = false
+  }
+})
+
+// POST /api/stop-services — stop all managed services
+app.post('/api/stop-services', (_req, res) => {
+  stopAllServices()
+  freePort(8545)
+  freePort(3001)
+  console.log('[dashboard] All services stopped')
+  res.json({ ok: true })
+})
+
+// Background event poller (handles dynamic CONTRACT_ADDRESS)
+async function pollEvents() {
   let lastBlock = 0n
+  let client: ReturnType<typeof createPublicClient> | null = null
 
   while (true) {
     try {
-      const currentBlock = await client.getBlockNumber()
-
-      if (currentBlock > lastBlock) {
-        const logs = await client.getContractEvents({
-          address: CONTRACT_ADDRESS,
-          abi: ReserveAttestation,
-          eventName: 'ReserveStatusUpdated',
-          fromBlock: lastBlock + 1n,
-          toBlock: currentBlock,
-        })
-
-        for (const log of logs) {
-          const args = (log as any).args
-          if (args) {
-            const isSolvent = args.isSolvent as boolean
-            const timestamp = Number(args.timestamp as bigint)
-
-            events.push({
-              isSolvent,
-              timestamp,
-              blockNumber: Number(log.blockNumber),
-            })
-
-            // Send alert on undercollateralization
-            if (!isSolvent) {
-              await alertManager.sendAlert(
-                'UNDERCOLLATERALIZATION',
-                `Reserve became undercollateralized at block ${log.blockNumber}`,
-                { timestamp, blockNumber: Number(log.blockNumber) }
-              )
-            }
-          }
+      if (CONTRACT_ADDRESS) {
+        if (!client) {
+          client = createPublicClient({ chain: hardhat, transport: http(RPC_URL) })
+          lastBlock = 0n
         }
 
-        lastBlock = currentBlock
+        const currentBlock = await client.getBlockNumber()
+
+        if (currentBlock > lastBlock) {
+          const logs = await client.getContractEvents({
+            address: CONTRACT_ADDRESS,
+            abi: ReserveAttestation,
+            eventName: 'ReserveStatusUpdated',
+            fromBlock: lastBlock + 1n,
+            toBlock: currentBlock,
+          })
+
+          for (const log of logs) {
+            const args = (log as any).args
+            if (args) {
+              const isSolvent = args.isSolvent as boolean
+              const timestamp = Number(args.timestamp as bigint)
+
+              events.push({
+                isSolvent,
+                timestamp,
+                blockNumber: Number(log.blockNumber),
+              })
+
+              if (!isSolvent) {
+                await alertManager.sendAlert(
+                  'UNDERCOLLATERALIZATION',
+                  `Reserve became undercollateralized at block ${log.blockNumber}`,
+                  { timestamp, blockNumber: Number(log.blockNumber) }
+                )
+              }
+            }
+          }
+
+          lastBlock = currentBlock
+        }
+      } else {
+        client = null
       }
     } catch {}
 
@@ -613,11 +752,13 @@ const server = app.listen(PORT, BIND_HOST, () => {
 })
 
 process.on('SIGTERM', () => {
+  stopAllServices()
   healthMonitor.stop()
   server.close()
 })
 
 process.on('SIGINT', () => {
+  stopAllServices()
   healthMonitor.stop()
   server.close()
 })
