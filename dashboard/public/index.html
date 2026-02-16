@@ -1021,9 +1021,9 @@
     let lastPollTime = null;
 
     const STEP_LABELS = {
-      checkBalance: { name: 'Check Balance', desc: 'Verify wallet has sufficient funds' },
-      trade: { name: 'Execute Trade', desc: 'Swap assets to cover reserve shortfall' },
-      send: { name: 'Send Funds', desc: 'Transfer recovery funds to reserve' },
+      checkBalance: { name: 'Check Wallet Balance', desc: 'Verify USDC available for recovery swap' },
+      trade: { name: 'Uniswap DEX Swap', desc: 'Swap USDC to stETH on Uniswap' },
+      send: { name: 'Send to Reserve', desc: 'Transfer stETH back to the reserve fund' },
     };
 
     function formatNumber(n) {
@@ -1031,14 +1031,10 @@
     }
 
     function formatReserveNumber(n) {
-      // Large Chainlink PoR values (e.g. BTC satoshis) — show with appropriate precision
       if (Math.abs(n) >= 1e9) {
         return n.toLocaleString('en-US', { maximumFractionDigits: 0 });
       }
-      if (Math.abs(n) >= 1e6) {
-        return n.toLocaleString('en-US', { maximumFractionDigits: 2 });
-      }
-      return '$' + n.toLocaleString('en-US', { maximumFractionDigits: 2 });
+      return n.toLocaleString('en-US', { maximumFractionDigits: 2 });
     }
 
     function formatTime(ts) {
@@ -1560,18 +1556,18 @@
         var summaryHtml = '';
         if (latest.summary) {
           var s = latest.summary;
-          var amountStr = formatReserveNumber(s.recoveryAmount);
+          var amountStr = formatReserveNumber(s.recoveryAmount) + ' stETH';
           if (latest.success) {
             summaryHtml = '<div class="recovery-summary recovery-summary-success">' +
-              'Agent committed <strong>' + amountStr + '</strong> back into the ' +
+              'Agent swapped USDC &rarr; stETH on Uniswap and committed <strong>' + amountStr + '</strong> back into the ' +
               (s.feedDescription || 'reserve') + ' fund to restore <strong>' + s.toRatio + '% collateralization</strong> ' +
-              '(from ' + s.fromRatio + '% &rarr; ' + s.toRatio + '%)' +
+              '(from ' + s.fromRatio + '% &rarr; ' + s.toRatio + '%).' +
             '</div>';
           } else {
             summaryHtml = '<div class="recovery-summary recovery-summary-failure">' +
-              'Recovery needed <strong>' + amountStr + '</strong> to restore ' +
+              'Recovery needed <strong>' + amountStr + '</strong> (via USDC &rarr; stETH Uniswap swap) to restore ' +
               (s.feedDescription || 'reserve') + ' fund to <strong>' + s.toRatio + '% collateralization</strong> ' +
-              '(from ' + s.fromRatio + '%) but the trade failed due to insufficient liquidity.' +
+              '(from ' + s.fromRatio + '%) but the swap failed due to insufficient pool liquidity.' +
             '</div>';
           }
         }

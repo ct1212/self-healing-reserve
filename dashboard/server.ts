@@ -558,13 +558,14 @@ app.post('/api/simulate', async (_req, res) => {
         const recoveryTime = Date.now()
 
         // Record recovery steps with real amounts
+        const fmtRecovery = recoveryAmount.toLocaleString('en-US', { maximumFractionDigits: 2 })
         const recoverySteps = [
           { step: 'checkBalance' as const, success: true, timestamp: recoveryTime, durationMs: 50,
-            data: { balance: Number(cl.answer).toLocaleString('en-US', { maximumFractionDigits: 2 }) + ' available in wallet' } },
+            data: { balance: '$2,500,000,000 in USDC available in wallet' } },
           { step: 'trade' as const, success: true, timestamp: recoveryTime + 100, durationMs: 150,
-            data: { amount: recoveryAmount.toLocaleString('en-US', { maximumFractionDigits: 2 }) + ' acquired via DEX swap' } },
+            data: { amount: 'Swapped USDC → ' + fmtRecovery + ' stETH on Uniswap' } },
           { step: 'send' as const, success: true, timestamp: recoveryTime + 300, durationMs: 100,
-            data: { amount: recoveryAmount.toLocaleString('en-US', { maximumFractionDigits: 2 }) + ' committed to reserve fund', tx: '0x' + Math.random().toString(16).slice(2, 10) + '...' } },
+            data: { amount: fmtRecovery + ' stETH sent to stETH reserve', tx: '0x' + Math.random().toString(16).slice(2, 10) + '...' } },
         ]
 
         recoveryHistory.push({
@@ -656,11 +657,12 @@ app.post('/api/simulate-failure', async (_req, res) => {
     })
 
     // Record failed recovery steps with real amounts
+    const fmtRecovery = recoveryAmount.toLocaleString('en-US', { maximumFractionDigits: 2 })
     const recoverySteps = [
       { step: 'checkBalance' as const, success: true, timestamp: now, durationMs: 50,
-        data: { balance: Number(cl.answer).toLocaleString('en-US', { maximumFractionDigits: 2 }) + ' available in wallet' } },
+        data: { balance: '$2,500,000,000 in USDC available in wallet' } },
       { step: 'trade' as const, success: false, timestamp: now + 100, durationMs: 200,
-        data: { error: 'Insufficient liquidity — needed ' + recoveryAmount.toLocaleString('en-US', { maximumFractionDigits: 2 }) + ' but pool depth insufficient' } },
+        data: { error: 'Uniswap USDC→stETH swap failed — needed ' + fmtRecovery + ' stETH but pool depth insufficient' } },
       { step: 'send' as const, success: false, timestamp: now + 300, durationMs: 0,
         data: { error: 'Skipped — previous step failed' } },
     ]
