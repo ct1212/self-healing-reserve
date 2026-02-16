@@ -1,9 +1,10 @@
 /**
- * Health monitoring for API, blockchain, and agent systems
+ * Health monitoring for Chainlink feed, blockchain, and agent systems
  */
 
 import { createPublicClient, http } from 'viem'
-import { hardhat } from 'viem/chains'
+import { hardhat, mainnet } from 'viem/chains'
+import { ChainlinkAggregator } from '../contracts/abi/ChainlinkAggregator'
 
 interface ComponentHealth {
   healthy: boolean;
@@ -41,17 +42,29 @@ export class HealthMonitor {
   private rpcUrl: string;
   private client: ReturnType<typeof createPublicClient>;
 
+  // Chainlink feed health
+  private chainlinkFeedAddress: `0x${string}`;
+  private chainlinkRpc: string;
+  private mainnetClient: ReturnType<typeof createPublicClient>;
+
   // Track agent reporting
   private agentLastReport: number | null = null;
   private agentStartTime: number | null = null;
 
-  constructor(apiUrl: string, rpcUrl: string) {
+  constructor(apiUrl: string, rpcUrl: string, chainlinkFeedAddress?: string, chainlinkRpc?: string) {
     this.apiUrl = apiUrl;
     this.rpcUrl = rpcUrl;
+    this.chainlinkFeedAddress = (chainlinkFeedAddress || '0xAd410E655C0fE4741F573152592eeb766e686CE7') as `0x${string}`;
+    this.chainlinkRpc = chainlinkRpc || 'https://ethereum-rpc.publicnode.com';
 
     this.client = createPublicClient({
       chain: hardhat,
       transport: http(rpcUrl),
+    });
+
+    this.mainnetClient = createPublicClient({
+      chain: mainnet,
+      transport: http(this.chainlinkRpc),
     });
 
     this.status = {
@@ -89,20 +102,25 @@ export class HealthMonitor {
   private async checkApiHealth(): Promise<void> {
     const startTime = Date.now();
     try {
-      const response = await fetch(`${this.apiUrl}/reserves`, {
-        signal: AbortSignal.timeout(5000),
+      // Check Chainlink feed health by calling latestRoundData
+      const roundData = await this.mainnetClient.readContract({
+        address: this.chainlinkFeedAddress,
+        abi: ChainlinkAggregator,
+        functionName: 'latestRoundData',
       });
 
-      if (!response.ok) {
-        throw new Error(`API returned ${response.status}`);
-      }
-
-      const data = await response.json();
-      if (typeof data !== 'object' || !('totalReserve' in data) || !('totalLiabilities' in data)) {
-        throw new Error('Invalid API response format');
-      }
-
+      const [, answer, , updatedAt] = roundData;
       const latency = Date.now() - startTime;
+
+      // Verify feed is reasonably fresh (< 24h since update)
+      const feedAge = Math.floor(Date.now() / 1000) - Number(updatedAt);
+      if (feedAge > 86400) {
+        throw new Error(`Feed stale (${Math.floor(feedAge / 3600)}h old)`);
+      }
+
+      if (answer <= 0n) {
+        throw new Error('Feed returned non-positive value');
+      }
 
       this.status.api = {
         healthy: true,

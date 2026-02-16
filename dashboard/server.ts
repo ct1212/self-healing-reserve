@@ -2,9 +2,10 @@ import express from 'express'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import { spawn, execSync, type ChildProcess } from 'child_process'
-import { createPublicClient, http } from 'viem'
-import { hardhat } from 'viem/chains'
+import { createPublicClient, http, formatUnits } from 'viem'
+import { hardhat, mainnet } from 'viem/chains'
 import { ReserveAttestation } from '../contracts/abi/ReserveAttestation'
+import { ChainlinkAggregator } from '../contracts/abi/ChainlinkAggregator'
 import { deployContract } from '../demo/deploy-contract'
 import { HealthMonitor } from './health'
 import { AlertManager } from './alerts'
@@ -19,12 +20,85 @@ const PORT = process.env.DASHBOARD_PORT || 3002
 const PUBLIC_URL = process.env.PUBLIC_URL || process.env.VPS_IP || '76.13.177.213'
 const BIND_HOST = process.env.BIND_HOST || '127.0.0.1' // Localhost only for production security
 
+// Chainlink PoR feed config
+const CHAINLINK_FEED_ADDRESS = (process.env.CHAINLINK_FEED_ADDRESS || '0xAd410E655C0fE4741F573152592eeb766e686CE7') as `0x${string}`
+const CHAINLINK_RPC = process.env.CHAINLINK_RPC || 'https://ethereum-rpc.publicnode.com'
+const EXPECTED_RESERVES_MULTIPLIER = Number(process.env.EXPECTED_RESERVES_MULTIPLIER || '0.95')
+
+// Mainnet client for Chainlink reads
+const mainnetClient = createPublicClient({
+  chain: mainnet,
+  transport: http(CHAINLINK_RPC),
+})
+
+// Chainlink data cache (30s TTL to avoid hammering public RPC)
+let chainlinkCache: {
+  answer: string
+  answerRaw: bigint
+  decimals: number
+  description: string
+  updatedAt: number
+  roundId: string
+  feedAddress: string
+  fetchedAt: number
+} | null = null
+const CHAINLINK_CACHE_TTL = 30_000
+
+async function fetchChainlinkData() {
+  // Return cache if fresh
+  if (chainlinkCache && (Date.now() - chainlinkCache.fetchedAt) < CHAINLINK_CACHE_TTL) {
+    return chainlinkCache
+  }
+
+  const [roundData, decimals, description] = await Promise.all([
+    mainnetClient.readContract({
+      address: CHAINLINK_FEED_ADDRESS,
+      abi: ChainlinkAggregator,
+      functionName: 'latestRoundData',
+    }),
+    mainnetClient.readContract({
+      address: CHAINLINK_FEED_ADDRESS,
+      abi: ChainlinkAggregator,
+      functionName: 'decimals',
+    }),
+    mainnetClient.readContract({
+      address: CHAINLINK_FEED_ADDRESS,
+      abi: ChainlinkAggregator,
+      functionName: 'description',
+    }),
+  ])
+
+  const [roundId, answer, , updatedAt] = roundData
+  const formatted = formatUnits(answer, decimals)
+
+  chainlinkCache = {
+    answer: formatted,
+    answerRaw: answer,
+    decimals,
+    description,
+    updatedAt: Number(updatedAt),
+    roundId: roundId.toString(),
+    feedAddress: CHAINLINK_FEED_ADDRESS,
+    fetchedAt: Date.now(),
+  }
+
+  return chainlinkCache
+}
+
+// Override reserves for simulate buttons (null = use Chainlink data)
+let overrideReserves: {
+  totalReserve: number
+  totalLiabilities: number
+  isSolvent: boolean
+  expiresAt: number
+} | null = null
+
 // Serve static files
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 app.use(express.static(path.join(__dirname, 'public')))
 
 // Initialize health monitor and alerts
-const healthMonitor = new HealthMonitor(API_URL, RPC_URL)
+const healthMonitor = new HealthMonitor(API_URL, RPC_URL, CHAINLINK_FEED_ADDRESS, CHAINLINK_RPC)
 const alertManager = new AlertManager()
 
 // In-memory event log
@@ -62,12 +136,64 @@ let agentDownAlertSent = false
 // GET /api/status — aggregated dashboard data
 app.get('/api/status', async (_req, res) => {
   try {
-    // Fetch mock-api reserves
-    let reserves = { totalReserve: 0, totalLiabilities: 0, isSolvent: true }
-    try {
-      const apiRes = await fetch(`${API_URL}/reserves`)
-      if (apiRes.ok) reserves = await apiRes.json()
-    } catch {}
+    // Check if override is active and not expired
+    if (overrideReserves && Date.now() > overrideReserves.expiresAt) {
+      overrideReserves = null
+    }
+
+    // Build reserves object
+    let reserves: {
+      totalReserve: number
+      totalLiabilities: number
+      isSolvent: boolean
+      chainlink?: {
+        description: string
+        updatedAt: number
+        roundId: string
+        feedAddress: string
+        decimals: number
+      }
+      source: 'chainlink' | 'override'
+    }
+
+    if (overrideReserves) {
+      // Use override from simulate buttons
+      reserves = {
+        totalReserve: overrideReserves.totalReserve,
+        totalLiabilities: overrideReserves.totalLiabilities,
+        isSolvent: overrideReserves.isSolvent,
+        source: 'override',
+      }
+    } else {
+      // Use real Chainlink data
+      try {
+        const cl = await fetchChainlinkData()
+        const totalReserve = Number(cl.answer)
+        const totalLiabilities = totalReserve * EXPECTED_RESERVES_MULTIPLIER
+
+        reserves = {
+          totalReserve,
+          totalLiabilities,
+          isSolvent: totalReserve >= totalLiabilities,
+          chainlink: {
+            description: cl.description,
+            updatedAt: cl.updatedAt,
+            roundId: cl.roundId,
+            feedAddress: cl.feedAddress,
+            decimals: cl.decimals,
+          },
+          source: 'chainlink',
+        }
+      } catch (clErr) {
+        // Fallback to mock API if Chainlink fails
+        let mockData = { totalReserve: 0, totalLiabilities: 0, isSolvent: true }
+        try {
+          const apiRes = await fetch(`${API_URL}/reserves`)
+          if (apiRes.ok) mockData = await apiRes.json()
+        } catch {}
+        reserves = { ...mockData, source: 'override' }
+      }
+    }
 
     // Read contract state
     let contract = { isSolvent: true, lastUpdated: 0 }
@@ -353,15 +479,20 @@ app.post('/api/alerts/test', async (_req, res) => {
 })
 
 // POST /api/simulate - Simulate a recovery scenario
-// 1. Toggles mock API to insolvent, responds immediately
-// 2. After 3s, toggles back to solvent and records recovery
+// Sets override reserves to insolvent, then clears after 3s recovery
 app.post('/api/simulate', async (_req, res) => {
   try {
-    // Toggle to insolvent
-    const toggleRes = await fetch(`${API_URL}/toggle`, { method: 'POST' })
-    const toggleData = await toggleRes.json()
-
     const now = Date.now()
+    const simulatedReserve = 800_000
+    const simulatedLiabilities = 1_000_000
+
+    // Set override to insolvent (expires after 10s as safety net)
+    overrideReserves = {
+      totalReserve: simulatedReserve,
+      totalLiabilities: simulatedLiabilities,
+      isSolvent: false,
+      expiresAt: now + 10_000,
+    }
 
     // Record undercollateralization event
     events.push({
@@ -370,24 +501,24 @@ app.post('/api/simulate', async (_req, res) => {
       blockNumber: events.length + 1,
     })
 
+    const ratio = Math.round((simulatedReserve / simulatedLiabilities) * 100)
+
     // Respond immediately so frontend can show insolvent state
     res.json({
       ok: true,
       phase: 'undercollateralized',
       data: {
-        totalReserve: toggleData.totalReserve,
-        totalLiabilities: toggleData.totalLiabilities,
-        ratio: toggleData.totalLiabilities > 0
-          ? Math.round((toggleData.totalReserve / toggleData.totalLiabilities) * 100)
-          : 100,
+        totalReserve: simulatedReserve,
+        totalLiabilities: simulatedLiabilities,
+        ratio,
       },
     })
 
     // After 3 seconds, trigger recovery
     setTimeout(async () => {
       try {
-        // Toggle back to solvent
-        await fetch(`${API_URL}/toggle`, { method: 'POST' })
+        // Clear override — reverts to Chainlink data
+        overrideReserves = null
 
         const recoveryTime = Date.now()
 
@@ -442,14 +573,20 @@ app.post('/api/simulate', async (_req, res) => {
 })
 
 // POST /api/simulate-failure - Simulate a failed recovery scenario
-// Toggles to insolvent and stays there (recovery fails)
+// Sets override to insolvent and stays there (expires after 15s)
 app.post('/api/simulate-failure', async (_req, res) => {
   try {
-    // Toggle to insolvent
-    const toggleRes = await fetch(`${API_URL}/toggle`, { method: 'POST' })
-    const toggleData = await toggleRes.json()
-
     const now = Date.now()
+    const simulatedReserve = 800_000
+    const simulatedLiabilities = 1_000_000
+
+    // Set override to insolvent (expires after 15s)
+    overrideReserves = {
+      totalReserve: simulatedReserve,
+      totalLiabilities: simulatedLiabilities,
+      isSolvent: false,
+      expiresAt: now + 15_000,
+    }
 
     // Record undercollateralization event
     events.push({
@@ -502,13 +639,13 @@ app.post('/api/simulate-failure', async (_req, res) => {
 
     healthMonitor.recordAgentReport(now - 60000)
 
-    // Stays insolvent — no recovery toggle back
+    // Stays insolvent — override expires after 15s
     res.json({
       ok: true,
       phase: 'failed',
       data: {
-        totalReserve: toggleData.totalReserve,
-        totalLiabilities: toggleData.totalLiabilities,
+        totalReserve: simulatedReserve,
+        totalLiabilities: simulatedLiabilities,
         failedStep: 'Execute Trade',
         error: 'Insufficient liquidity in pool',
       },
@@ -788,6 +925,8 @@ const server = app.listen(PORT, BIND_HOST, () => {
   monitorSystemHealth()
 
   console.log('[dashboard] Background monitoring started')
+  console.log(`[dashboard] Chainlink PoR feed: ${CHAINLINK_FEED_ADDRESS}`)
+  console.log(`[dashboard] Chainlink RPC: ${CHAINLINK_RPC}`)
   console.log(`[dashboard] Alerts: ${alertManager.getConfig().enabled ? 'enabled' : 'disabled'}`)
 })
 

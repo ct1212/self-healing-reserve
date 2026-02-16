@@ -815,7 +815,7 @@
         <div class="health-item">
           <div class="health-dot" id="health-api-dot"></div>
           <div>
-            <div class="health-label">Mock API</div>
+            <div class="health-label">Chainlink Feed</div>
             <div class="health-value" id="health-api-status">---</div>
             <div class="health-latency" id="health-api-latency"></div>
           </div>
@@ -864,7 +864,11 @@
 
     <!-- Reserves -->
     <div class="card">
-      <h2>Reserve Data</h2>
+      <h2 id="reserve-card-title">Reserve Data</h2>
+      <div id="chainlink-feed-info" style="font-size:0.75rem;color:#666;margin:-10px 0 12px;display:none;">
+        <span id="feed-description"></span>
+        <span id="feed-address" style="margin-left:8px;color:#555;cursor:default;" title=""></span>
+      </div>
       <div class="stat-row">
         <span class="stat-label">Total Reserve</span>
         <span class="stat-value" id="total-reserve">---</span>
@@ -876,6 +880,14 @@
       <div class="stat-row">
         <span class="stat-label">Ratio</span>
         <span class="stat-value" id="ratio-value">---</span>
+      </div>
+      <div class="stat-row" id="feed-updated-row" style="display:none;">
+        <span class="stat-label">Feed Updated</span>
+        <span class="stat-value" id="feed-updated" style="font-size:0.85rem;">---</span>
+      </div>
+      <div class="stat-row" id="feed-round-row" style="display:none;">
+        <span class="stat-label">Round</span>
+        <span class="stat-value" id="feed-round" style="font-size:0.85rem;">---</span>
       </div>
       <div class="ratio-bar-container">
         <div class="ratio-label">
@@ -992,6 +1004,17 @@
 
     function formatNumber(n) {
       return n.toLocaleString('en-US');
+    }
+
+    function formatReserveNumber(n) {
+      // Large Chainlink PoR values (e.g. BTC satoshis) — show with appropriate precision
+      if (Math.abs(n) >= 1e9) {
+        return n.toLocaleString('en-US', { maximumFractionDigits: 0 });
+      }
+      if (Math.abs(n) >= 1e6) {
+        return n.toLocaleString('en-US', { maximumFractionDigits: 2 });
+      }
+      return '$' + n.toLocaleString('en-US', { maximumFractionDigits: 2 });
     }
 
     function formatTime(ts) {
@@ -1331,8 +1354,8 @@
       document.getElementById('contract-updated').textContent = formatTime(contract.lastUpdated);
 
       // Reserves
-      document.getElementById('total-reserve').textContent = '$' + formatNumber(reserves.totalReserve);
-      document.getElementById('total-liabilities').textContent = '$' + formatNumber(reserves.totalLiabilities);
+      document.getElementById('total-reserve').textContent = formatReserveNumber(reserves.totalReserve);
+      document.getElementById('total-liabilities').textContent = formatReserveNumber(reserves.totalLiabilities);
 
       const ratio = reserves.totalLiabilities > 0
         ? (reserves.totalReserve / reserves.totalLiabilities)
@@ -1344,6 +1367,34 @@
       const barWidth = Math.min(pct / 2, 100);
       bar.style.width = barWidth + '%';
       bar.className = 'ratio-bar-fill ' + (pct >= 100 ? 'healthy' : pct >= 80 ? 'warning' : 'danger');
+
+      // Chainlink feed metadata
+      var feedInfoEl = document.getElementById('chainlink-feed-info');
+      var feedUpdatedRow = document.getElementById('feed-updated-row');
+      var feedRoundRow = document.getElementById('feed-round-row');
+      var titleEl = document.getElementById('reserve-card-title');
+
+      if (reserves.chainlink) {
+        var cl = reserves.chainlink;
+        titleEl.textContent = 'Reserve Data \u2014 Chainlink PoR';
+        feedInfoEl.style.display = '';
+        document.getElementById('feed-description').textContent = cl.description;
+        var addrShort = cl.feedAddress.slice(0, 6) + '...' + cl.feedAddress.slice(-4);
+        var addrEl = document.getElementById('feed-address');
+        addrEl.textContent = addrShort;
+        addrEl.title = cl.feedAddress;
+
+        feedUpdatedRow.style.display = '';
+        document.getElementById('feed-updated').textContent = formatTime(cl.updatedAt);
+
+        feedRoundRow.style.display = '';
+        document.getElementById('feed-round').textContent = cl.roundId;
+      } else {
+        titleEl.textContent = reserves.source === 'override' ? 'Reserve Data \u2014 Simulated' : 'Reserve Data';
+        feedInfoEl.style.display = 'none';
+        feedUpdatedRow.style.display = 'none';
+        feedRoundRow.style.display = 'none';
+      }
 
       // Event timeline
       if (events.length !== lastEventCount) {
