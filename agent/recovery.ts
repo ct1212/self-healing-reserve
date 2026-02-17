@@ -1,5 +1,6 @@
 import type { AgentConfig } from './config'
 import { checkBalance, tradeEthToUsdc, sendUsdc } from './wallet'
+import { executeDarkPoolRecovery, compareMechanisms } from './darkpool'
 
 export interface RecoveryStep {
   step: 'checkBalance' | 'trade' | 'send';
@@ -16,8 +17,32 @@ export interface RecoveryResult {
   durationMs: number;
 }
 
-export async function executeRecovery(config: AgentConfig): Promise<RecoveryResult> {
+export async function executeRecovery(config: AgentConfig, deficitAmount?: string): Promise<RecoveryResult> {
   console.log('[recovery] Reserve undercollateralized — initiating recovery...')
+
+  // Choose mechanism based on deficit size
+  const useDarkPool = deficitAmount && parseFloat(deficitAmount) > 10000; // >$10K use dark pool
+  
+  if (useDarkPool) {
+    console.log('[recovery] Large deficit detected — using confidential dark pool...')
+    console.log(compareMechanisms())
+    
+    const result = await executeDarkPoolRecovery(deficitAmount!, config)
+    
+    // Map dark pool result to standard RecoveryResult format
+    return {
+      success: result.success,
+      steps: result.steps.map(s => ({
+        step: s.step as 'checkBalance' | 'trade' | 'send',
+        success: s.success,
+        timestamp: s.timestamp,
+        durationMs: s.durationMs,
+        data: { ...s.data, mechanism: 'darkpool', confidential: true },
+        error: s.error
+      })),
+      durationMs: result.durationMs
+    }
+  }
 
   const startTime = Date.now();
   const steps: RecoveryStep[] = [];

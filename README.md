@@ -6,6 +6,8 @@ Built for **Chainlink Convergence Hackathon 2026**.
 
 ## Architecture
 
+### Core Flow
+
 ```
 ┌─────────────┐       ┌──────────────────┐       ┌─────────────────────────┐
 │  Reserve API │──HTTP──▶  CRE Workflow   │──tx──▶│ ReserveAttestation.sol  │
@@ -30,6 +32,77 @@ Built for **Chainlink Convergence Hackathon 2026**.
 ```
 
 **Key insight:** The exact reserve balances never leave the TEE — only a boolean `isSolvent` attestation is published on-chain. This preserves confidentiality while enabling trustless verification and autonomous recovery.
+
+### Dual Recovery Mechanisms
+
+The agent intelligently selects the optimal recovery method based on deficit size:
+
+| Mechanism | Best For | Privacy | Speed | Complexity |
+|-----------|----------|---------|-------|------------|
+| **Direct Wallet** | Small deficits (<$10K) | Public txs | Fast (seconds) | Simple |
+| **Dark Pool** | Large deficits (>$10K) | Confidential | Moderate (minutes) | TEE-based |
+
+### Dark Pool Recovery (NEW)
+
+For large collateral deficits where market impact and confidentiality are critical:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    CONFIDENTIAL DARK POOL RECOVERY                          │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  Step 1: Encrypt Request                                                    │
+│  ┌──────────┐    TEE Public Key    ┌─────────────────┐                     │
+│  │ Deficit  │ ───────────────────▶ │ Encrypted       │                     │
+│  │ (hidden) │                      │ Request         │                     │
+│  └──────────┘                      └─────────────────┘                     │
+│                                                                             │
+│  Step 2: Submit to Dark Pool                                                │
+│  ┌─────────────────┐    requestCollateral()    ┌──────────────────────┐    │
+│  │ Encrypted       │ ────────────────────────▶ │ CREDarkPool.sol      │    │
+│  │ Request         │                           │ (on-chain)           │    │
+│  └─────────────────┘                           └──────────────────────┘    │
+│                                                                             │
+│  Step 3: TEE Matching (Private)                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │  TEE Enclave (Chainlink Confidential Compute)                       │   │
+│  │                                                                     │   │
+│  │  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐          │   │
+│  │  │ Market Maker │    │ Market Maker │    │ Market Maker │          │   │
+│  │  │ A: $20K      │    │ B: $15K      │    │ C: $20K      │          │   │
+│  │  └──────┬───────┘    └──────┬───────┘    └──────┬───────┘          │   │
+│  │         │                   │                   │                   │   │
+│  │         └───────────────────┴───────────────────┘                   │   │
+│  │                         │                                          │   │
+│  │                         ▼                                          │   │
+│  │              ┌─────────────────────┐                               │   │
+│  │              │ Match: A+B+C = $55K │                               │   │
+│  │              │ Fill deficit        │                               │   │
+│  │              └──────────┬──────────┘                               │   │
+│  │                         │                                          │   │
+│  │              ┌──────────▼──────────┐                               │   │
+│  │              │ ZK-Proof Generated  │                               │   │
+│  │              │ TEE Attestation     │                               │   │
+│  │              └─────────────────────┘                               │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
+│  Step 4: Settlement                                                         │
+│  ┌─────────────────┐    confidentialFill()    ┌──────────────────────┐     │
+│  │ TEE Attestation │ ───────────────────────▶ │ Collateral sent to   │     │
+│  │ + ZK Proof      │                          │ reserve (proven      │     │
+│  └─────────────────┘                          │ but amounts hidden)  │     │
+│                                               └──────────────────────┘     │
+│                                                                             │
+│  ✅ PUBLIC: "Recovery executed" | ❌ PRIVATE: How much, from whom          │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Dark Pool Benefits:**
+- **Confidential**: Deficit amount never revealed
+- **No Market Impact**: Large fills don't move public markets
+- **MEV Protected**: Orders matched privately in TEE
+- **Discreet**: No signaling of reserve distress to competitors
 
 ## Quick Start
 
@@ -73,8 +146,9 @@ dashboard/
 agent/
   index.ts                          Entry point + graceful shutdown
   monitor.ts                        viem event watcher (ReserveStatusUpdated)
-  recovery.ts                       Recovery orchestration
+  recovery.ts                       Recovery orchestration (selects mechanism)
   wallet.ts                         awal CLI wrapper (dry-run capable)
+  darkpool.ts                       Confidential dark pool recovery module
   config.ts                         Env-based config loader
 
 demo/
@@ -128,13 +202,21 @@ npx tsx demo/deploy-contract.ts
 | `/set-reserves` | POST | Set exact values `{totalReserve, totalLiabilities}` |
 | `/state` | GET | Raw state for debugging |
 
-## Smart Contract
+## Smart Contracts
 
-`ReserveAttestation.sol` exposes:
-
+### ReserveAttestation.sol
+Main attestation contract:
 - **`updateAttestation(bool)`** — Called by the CRE workflow simulator to write the attestation
 - **`onReport(bytes, bytes)`** — CRE-compatible callback for production DON integration
 - **`ReserveStatusUpdated(bool isSolvent, uint256 timestamp)`** — Event the agent monitors
+
+### CREDarkPool.sol (NEW)
+Confidential dark pool for large collateral fills:
+- **`requestCollateral(bytes32 encryptedAmount, uint256 premiumBps, uint256 timeout)`** — Submit confidential request
+- **`confidentialFill(bytes32 requestId, bytes calldata zkProof, bytes32 teeAttestation)`** — TEE-verified fill
+- **Private matching** — Orders matched inside TEE, only boolean status revealed
+
+See `contracts/darkpool/` for implementation and `research/dark-pool-integration.md` for full architecture.
 
 ## CRE Workflow
 
@@ -149,11 +231,20 @@ For the demo, `demo/simulate-workflow.ts` replicates this logic locally.
 
 ## Recovery Agent
 
-When `ReserveStatusUpdated(false, ...)` is detected:
+When `ReserveStatusUpdated(false, ...)` is detected, the agent intelligently selects the recovery mechanism:
 
+### Small Deficits (<$10K): Direct Wallet
+Fast, simple recovery via Coinbase agentic wallet:
 1. **Check balance** — `npx awal@latest balance --json`
 2. **Trade ETH → USDC** — `npx awal@latest trade 0.01 eth usdc --json`
 3. **Send USDC to reserve** — `npx awal@latest send 10 <reserve-address> --json`
+
+### Large Deficits (>$10K): Dark Pool
+Confidential recovery via decentralized dark pool:
+1. **Encrypt request** — Deficit amount encrypted with TEE public key
+2. **Submit to pool** — `CREDarkPool.requestCollateral()` with premium incentive
+3. **TEE matching** — Market makers fill privately inside Chainlink Confidential Compute
+4. **ZK settlement** — Proof of valid fill, amounts remain private
 
 In dry-run mode (default), commands are logged but not executed.
 
