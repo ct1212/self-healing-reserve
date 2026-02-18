@@ -506,8 +506,8 @@ app.post('/api/simulate', async (_req, res) => {
     const feedDesc = cl.description
 
     const liabilities = realReserve * EXPECTED_RESERVES_MULTIPLIER
-    // Drop reserve to 99% of liabilities (small shortfall)
-    const droppedReserve = liabilities * 0.99
+    // Drop reserve to 99.95% of liabilities (small shortfall)
+    const droppedReserve = liabilities * 0.9995
     // Recovery target: restore to 100% solvency
     const targetReserve = liabilities
     const recoveryAmount = targetReserve - droppedReserve // = liabilities * 0.01
@@ -531,7 +531,7 @@ app.post('/api/simulate', async (_req, res) => {
       blockNumber: events.length + 1,
     })
 
-    const ratio = Math.round((droppedReserve / liabilities) * 100)
+    const ratio = Number(((droppedReserve / liabilities) * 100).toFixed(1))
 
     // Log agent activity
     agentActivity.push({
@@ -582,7 +582,7 @@ app.post('/api/simulate', async (_req, res) => {
             shortfall: liabilities - droppedReserve,
             recoveryAmount,
             recoveryAmountUsd,
-            fromRatio: 99,
+            fromRatio: 99.9,
             toRatio: 100,
             feedDescription: feedDesc,
             mechanism: 'direct',
