@@ -4,7 +4,7 @@ Autonomous proof-of-reserve system combining **Chainlink CRE confidential comput
 
 Built for **Chainlink Convergence Hackathon 2026**.
 
-**[Live Demo Dashboard](http://76.13.177.213/cre/)** — see it running with real Chainlink data.
+**[Live Demo Dashboard](http://76.13.177.213/cre/)** | see it running with real Chainlink data.
 
 ## Architecture
 
@@ -33,7 +33,7 @@ Built for **Chainlink Convergence Hackathon 2026**.
                                                   └─────────────────────────┘
 ```
 
-**Key insight:** The exact reserve balances never leave the TEE — only a boolean `isSolvent` attestation is published on-chain. This preserves confidentiality while enabling trustless verification and autonomous recovery.
+**Key insight:** The exact reserve balances never leave the TEE. Only a boolean `isSolvent` attestation is published on-chain. This preserves confidentiality while enabling trustless verification and autonomous recovery.
 
 ### Dual Recovery Mechanisms
 
@@ -46,7 +46,7 @@ The agent intelligently selects the optimal recovery method based on deficit siz
 
 ### Dark Pool Recovery (Proof of Concept)
 
-For large collateral deficits where market impact and confidentiality are critical. This module demonstrates the architecture for TEE-based confidential matching — the contract and agent run in simulation mode, with full implementation pending Chainlink Confidential Compute availability.
+For large collateral deficits where market impact and confidentiality are critical. This module demonstrates the architecture for TEE-based confidential matching. The contract and agent run in simulation mode, with full implementation pending Chainlink Confidential Compute availability.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -173,16 +173,16 @@ deployment/
 
 A live web dashboard provides real-time visibility into the system. **[View the live demo](http://76.13.177.213/cre/)**.
 
-- **Chainlink PoR data** — live stETH Proof of Reserve from Ethereum mainnet (feed address, round ID, last updated)
-- **Attestation status** — large green/red indicator showing current solvency
-- **Reserve data** — total reserves, liabilities, and collateralization ratio sourced from Chainlink
-- **Simulate recovery** — two scenarios using real Chainlink data:
-  - *Small deficit* — agent swaps $50M USDC → 20K stETH via direct Uniswap swap (3 steps)
-  - *Large deficit* — agent routes ~900K stETH through a confidential dark pool with TEE matching and ZK settlement (4 steps)
-  - *Failed recovery* — dark pool TEE matching times out, demonstrating failure handling
-- **Recovery history** — step-by-step breakdown with mechanism badges (Direct Wallet Swap / Confidential Dark Pool)
-- **Health monitoring** — Chainlink feed freshness, blockchain connectivity, API status
-- **Event timeline** — scrollable history of on-chain `ReserveStatusUpdated` events
+- **Chainlink PoR data**: live stETH Proof of Reserve from Ethereum mainnet (feed address, round ID, last updated)
+- **Attestation status**: large green/red indicator showing current solvency
+- **Reserve data**: total reserves, liabilities, and collateralization ratio sourced from Chainlink
+- **Simulate recovery**: two scenarios using real Chainlink data:
+  - *Small deficit*: agent computes the stETH shortfall, swaps USDC via direct Uniswap swap (3 steps)
+  - *Large deficit*: agent routes ~900K stETH through a confidential dark pool with TEE matching and ZK settlement (4 steps)
+  - *Failed recovery*: dark pool TEE matching times out, demonstrating failure handling
+- **Recovery history**: step-by-step breakdown with mechanism badges (Direct Wallet Swap / Confidential Dark Pool)
+- **Health monitoring**: Chainlink feed freshness, blockchain connectivity, API status
+- **Event timeline**: scrollable history of on-chain `ReserveStatusUpdated` events
 
 The dashboard auto-starts with `npm run demo`, or run standalone:
 
@@ -224,15 +224,15 @@ npx tsx demo/deploy-contract.ts
 
 ### ReserveAttestation.sol
 Main attestation contract:
-- **`updateAttestation(bool)`** — Called by the CRE workflow simulator to write the attestation
-- **`onReport(bytes, bytes)`** — CRE-compatible callback for production DON integration
-- **`ReserveStatusUpdated(bool isSolvent, uint256 timestamp)`** — Event the agent monitors
+- **`updateAttestation(bool)`**: Called by the CRE workflow simulator to write the attestation
+- **`onReport(bytes, bytes)`**: CRE-compatible callback for production DON integration
+- **`ReserveStatusUpdated(bool isSolvent, uint256 timestamp)`**: Event the agent monitors
 
 ### CREDarkPool.sol (Proof of Concept)
-Confidential dark pool design for large collateral fills. Runs in simulation mode — ZK proof verification and TEE attestation validation are stubbed, pending Chainlink Confidential Compute availability.
-- **`requestCollateral(bytes32 encryptedAmount, uint256 premiumBps, uint256 timeout)`** — Submit confidential request
-- **`confidentialFill(bytes32 requestId, bytes calldata zkProof, bytes32 teeAttestation)`** — TEE-verified fill
-- **Private matching** — Orders matched inside TEE, only boolean status revealed
+Confidential dark pool design for large collateral fills. Runs in simulation mode. ZK proof verification and TEE attestation validation are stubbed, pending Chainlink Confidential Compute availability.
+- **`requestCollateral(bytes32 encryptedAmount, uint256 premiumBps, uint256 timeout)`**: Submit confidential request
+- **`confidentialFill(bytes32 requestId, bytes calldata zkProof, bytes32 teeAttestation)`**: TEE-verified fill
+- **Private matching**: Orders matched inside TEE, only boolean status revealed
 
 See `contracts/darkpool/` for implementation and `research/dark-pool-integration.md` for full architecture.
 
@@ -243,7 +243,7 @@ See `contracts/darkpool/` for implementation and `research/dark-pool-integration
 - Uses `ConfidentialHTTPClient` to fetch reserve data
 - Applies `consensusIdenticalAggregation` across DON nodes
 - Compares reserves vs liabilities **inside the TEE**
-- Returns only `{isSolvent: boolean}` — balances never leave the enclave
+- Returns only `{isSolvent: boolean}`. Balances never leave the enclave.
 
 For the demo, `demo/simulate-workflow.ts` replicates this logic locally.
 
@@ -252,17 +252,17 @@ For the demo, `demo/simulate-workflow.ts` replicates this logic locally.
 When `ReserveStatusUpdated(false, ...)` is detected, the agent intelligently selects the recovery mechanism based on deficit size:
 
 ### Small Deficits (<$50M): Direct Wallet Swap
-Fast, simple recovery via Coinbase agentic wallet — the agent swaps up to $50M USDC into stETH and sends it directly to the reserve:
-1. **Check USDC balance** — verify wallet has funds available
-2. **Swap USDC → stETH** — Uniswap DEX swap (e.g. $50M USDC → 20,000 stETH)
-3. **Send stETH to PoR reserve** — transfer stETH back into the reserve fund
+Fast, simple recovery via Coinbase agentic wallet. The agent swaps USDC into stETH and sends it directly to the reserve:
+1. **Check USDC balance**: verify wallet has funds available
+2. **Swap USDC → stETH**: Uniswap DEX swap at current market rate
+3. **Send stETH to PoR reserve**: transfer stETH back into the reserve fund
 
 ### Large Deficits (>$50M): Confidential Dark Pool
 For deficits too large for a direct swap without market impact, the agent routes through a confidential dark pool:
-1. **Encrypt order** — deficit amount encrypted with TEE public key (AES-256-GCM)
-2. **Submit to dark pool** — `CREDarkPool.requestCollateral()` with encrypted order
-3. **TEE matching** — market makers fill privately inside Chainlink Confidential Compute, no order details revealed
-4. **ZK settlement** — matched trade settled on-chain with ZK proof; amounts remain private
+1. **Encrypt order**: deficit amount encrypted with TEE public key (AES-256-GCM)
+2. **Submit to dark pool**: `CREDarkPool.requestCollateral()` with encrypted order
+3. **TEE matching**: market makers fill privately inside Chainlink Confidential Compute, no order details revealed
+4. **ZK settlement**: matched trade settled on-chain with ZK proof; amounts remain private
 
 In dry-run mode (default), commands are logged but not executed.
 
@@ -272,7 +272,7 @@ In dry-run mode (default), commands are logged but not executed.
 |---|---|---|
 | `RPC_URL` | `http://127.0.0.1:8545` | Ethereum JSON-RPC endpoint |
 | `MOCK_API_URL` | `http://127.0.0.1:3001` | Mock reserve API |
-| `CONTRACT_ADDRESS` | — | Deployed ReserveAttestation contract address |
+| `CONTRACT_ADDRESS` | *(none)* | Deployed ReserveAttestation contract address |
 | `RESERVE_ADDRESS` | `0x000...000` | Where recovery stETH is sent |
 | `CHAINLINK_FEED_ADDRESS` | `0xAd41...CE7` | Chainlink stETH PoR feed (Ethereum mainnet) |
 | `DASHBOARD_PORT` | `3002` | Dashboard server port |
@@ -280,11 +280,11 @@ In dry-run mode (default), commands are logged but not executed.
 
 ## Stack
 
-- **Solidity 0.8.19** + solc — smart contracts
-- **TypeScript** + tsx — all runtime code
-- **viem** — Ethereum client (deploy, write, watch events, read Chainlink feeds)
-- **Chainlink Proof of Reserve** — live stETH PoR feed on Ethereum mainnet
-- **@chainlink/cre-sdk** — CRE workflow (confidential compute runtime)
-- **Express** — dashboard backend + mock reserve API
-- **Hardhat** — local EVM node for demo
-- **awal** — Coinbase agentic wallet CLI
+- **Solidity 0.8.19** + solc: smart contracts
+- **TypeScript** + tsx: all runtime code
+- **viem**: Ethereum client (deploy, write, watch events, read Chainlink feeds)
+- **Chainlink Proof of Reserve**: live stETH PoR feed on Ethereum mainnet
+- **@chainlink/cre-sdk**: CRE workflow (confidential compute runtime)
+- **Express**: dashboard backend + mock reserve API
+- **Hardhat**: local EVM node for demo
+- **awal**: Coinbase agentic wallet CLI

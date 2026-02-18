@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Self-Healing Reserve — Live Dashboard</title>
+  <title>Self-Healing Reserve | Live Dashboard</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect rx='15' width='100' height='100' fill='%238b8bff'/%3E%3Ctext x='50' y='68' font-size='50' text-anchor='middle' fill='white' font-family='monospace' font-weight='bold'%3ESR%3C/text%3E%3C/svg%3E">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -796,10 +796,10 @@
 </head>
 <body>
   <h1>Self-Healing Reserve</h1>
-  <p class="subtitle">Live Dashboard &mdash; Chainlink CRE + Coinbase Agentic Wallet</p>
+  <p class="subtitle">Live Dashboard // Chainlink CRE + Coinbase Agentic Wallet</p>
 
   <p class="description">
-    Autonomous proof-of-reserve monitoring powered by live Chainlink stETH PoR data. Reserve balances are verified confidentially inside a Chainlink CRE Trusted Execution Environment &mdash; only a boolean solvency attestation is published on-chain. When undercollateralization is detected, an AI agent selects the optimal recovery strategy: direct Uniswap swaps for small deficits, or confidential dark pool execution via TEE matching for large ones where market impact matters. No human intervention required.
+    Autonomous proof-of-reserve monitoring powered by live Chainlink stETH PoR data. Reserve balances are verified confidentially inside a Chainlink CRE Trusted Execution Environment, publishing only a boolean solvency attestation on-chain. When undercollateralization is detected, an AI agent selects the optimal recovery strategy: direct Uniswap swaps for small deficits, or confidential dark pool execution via TEE matching for large ones where market impact matters. No human intervention required.
   </p>
 
   <!-- Architecture Flow -->
@@ -1476,7 +1476,7 @@
 
       if (reserves.chainlink) {
         var cl = reserves.chainlink;
-        titleEl.textContent = 'Reserve Data \u2014 Chainlink PoR';
+        titleEl.textContent = 'Reserve Data // Chainlink PoR';
         feedInfoEl.style.display = '';
         document.getElementById('feed-description').textContent = cl.description;
         var addrShort = cl.feedAddress.slice(0, 6) + '...' + cl.feedAddress.slice(-4);
@@ -1490,7 +1490,7 @@
         feedRoundRow.style.display = '';
         document.getElementById('feed-round').textContent = cl.roundId;
       } else {
-        titleEl.textContent = reserves.source === 'override' ? 'Reserve Data \u2014 Simulated' : 'Reserve Data';
+        titleEl.textContent = reserves.source === 'override' ? 'Reserve Data // Simulated' : 'Reserve Data';
         feedInfoEl.style.display = 'none';
         feedUpdatedRow.style.display = 'none';
         feedRoundRow.style.display = 'none';
@@ -1682,7 +1682,7 @@
           } else if (sMech === 'darkpool') {
             summaryHtml = '<div class="recovery-summary recovery-summary-failure">' +
               'Agent attempted to fill <strong>' + amountStr + '</strong> via the Chainlink Confidential Dark Pool, ' +
-              'but the TEE matching engine timed out &mdash; insufficient dark pool liquidity. ' +
+              'but the TEE matching engine timed out due to insufficient dark pool liquidity. ' +
               'Reserve remains at <strong>' + s.fromRatio + '% collateralization</strong>. Manual intervention required.' +
             '</div>';
           } else {

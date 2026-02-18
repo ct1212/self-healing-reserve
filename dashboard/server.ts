@@ -537,7 +537,7 @@ app.post('/api/simulate', async (_req, res) => {
     agentActivity.push({
       action: 'monitor',
       timestamp: Math.floor(now / 1000),
-      details: `Undercollateralization detected \u2014 ratio dropped to ${ratio}%. Initiating direct wallet recovery.`,
+      details: `Undercollateralization detected. Ratio dropped to ${ratio}%. Initiating direct wallet recovery.`,
     })
 
     res.json({
@@ -667,7 +667,7 @@ app.post('/api/simulate-large', async (_req, res) => {
     agentActivity.push({
       action: 'monitor',
       timestamp: Math.floor(now / 1000),
-      details: `Undercollateralization detected \u2014 ratio dropped to ${ratio}%. Deficit too large for direct swap, routing to dark pool.`,
+      details: `Undercollateralization detected. Ratio dropped to ${ratio}%. Deficit too large for direct swap, routing to dark pool.`,
     })
 
     res.json({
@@ -800,7 +800,7 @@ app.post('/api/simulate-failure', async (_req, res) => {
     agentActivity.push({
       action: 'monitor',
       timestamp: Math.floor(now / 1000),
-      details: `Undercollateralization detected \u2014 ratio dropped to 95%. Routing ${fmtRecovery} stETH (${fmtUsd}) to dark pool.`,
+      details: `Undercollateralization detected. Ratio dropped to 95%. Routing ${fmtRecovery} stETH (${fmtUsd}) to dark pool.`,
     })
 
     const recoverySteps = [
@@ -809,9 +809,9 @@ app.post('/api/simulate-failure', async (_req, res) => {
       { step: 'submitToPool' as const, success: true, timestamp: now + 100, durationMs: 120, mechanism: 'darkpool' as const,
         data: { orderId, venue: 'Chainlink Confidential Dark Pool', amount: fmtRecovery + ' stETH' } },
       { step: 'monitorFill' as const, success: false, timestamp: now + 250, durationMs: 5000, mechanism: 'darkpool' as const,
-        data: { error: 'TEE matching engine timed out \u2014 insufficient dark pool liquidity for ' + fmtRecovery + ' stETH' } },
+        data: { error: 'TEE matching engine timed out. Insufficient dark pool liquidity for ' + fmtRecovery + ' stETH' } },
       { step: 'settle' as const, success: false, timestamp: now + 5300, durationMs: 0, mechanism: 'darkpool' as const,
-        data: { error: 'Skipped \u2014 previous step failed' } },
+        data: { error: 'Skipped, previous step failed' } },
     ]
 
     recoveryHistory.push({
