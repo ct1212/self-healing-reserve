@@ -24,9 +24,7 @@ const BIND_HOST = process.env.BIND_HOST || '127.0.0.1' // Localhost only for pro
 const CHAINLINK_FEED_ADDRESS = (process.env.CHAINLINK_FEED_ADDRESS || '0xAd410E655C0fE4741F573152592eeb766e686CE7') as `0x${string}`
 const CHAINLINK_RPC = process.env.CHAINLINK_RPC || 'https://ethereum-rpc.publicnode.com'
 const EXPECTED_RESERVES_MULTIPLIER = Number(process.env.EXPECTED_RESERVES_MULTIPLIER || '0.95')
-const DIRECT_WALLET_CAP_USD = 50_000_000
-const STETH_USD_PRICE = 2_500
-const DIRECT_WALLET_CAP_STETH = DIRECT_WALLET_CAP_USD / STETH_USD_PRICE // 20,000 stETH
+const STETH_USD_PRICE = 2_500 // approximate stETH price for USD display
 
 // Mainnet client for Chainlink reads
 const mainnetClient = createPublicClient({
@@ -498,7 +496,7 @@ app.post('/api/alerts/test', async (_req, res) => {
 })
 
 // POST /api/simulate - Simulate a small deficit recovery (direct wallet swap)
-// Snapshots real Chainlink data, drops ratio to 99%, agent swaps $50M via wallet
+// Snapshots real Chainlink data, drops ratio to 99%, agent computes deficit and swaps via wallet
 app.post('/api/simulate', async (_req, res) => {
   try {
     const now = Date.now()
@@ -510,8 +508,10 @@ app.post('/api/simulate', async (_req, res) => {
     const liabilities = realReserve * EXPECTED_RESERVES_MULTIPLIER
     // Drop reserve to 99% of liabilities (small shortfall)
     const droppedReserve = liabilities * 0.99
-    // Recovery: wallet directly swaps up to $50M (20K stETH)
-    const recoveryAmount = DIRECT_WALLET_CAP_STETH
+    // Recovery target: restore to 100% solvency
+    const targetReserve = liabilities
+    const recoveryAmount = targetReserve - droppedReserve // = liabilities * 0.01
+    const recoveryAmountUsd = Math.round(recoveryAmount * STETH_USD_PRICE)
 
     overrideReserves = {
       totalReserve: droppedReserve,
@@ -532,6 +532,13 @@ app.post('/api/simulate', async (_req, res) => {
     })
 
     const ratio = Math.round((droppedReserve / liabilities) * 100)
+
+    // Log agent activity
+    agentActivity.push({
+      action: 'monitor',
+      timestamp: Math.floor(now / 1000),
+      details: `Undercollateralization detected \u2014 ratio dropped to ${ratio}%. Initiating direct wallet recovery.`,
+    })
 
     res.json({
       ok: true,
@@ -554,7 +561,7 @@ app.post('/api/simulate', async (_req, res) => {
 
         const recoveryTime = Date.now()
         const fmtRecovery = recoveryAmount.toLocaleString('en-US', { maximumFractionDigits: 0 })
-        const fmtUsd = '$' + DIRECT_WALLET_CAP_USD.toLocaleString('en-US')
+        const fmtUsd = '$' + recoveryAmountUsd.toLocaleString('en-US')
 
         const recoverySteps = [
           { step: 'checkBalance' as const, success: true, timestamp: recoveryTime, durationMs: 50, mechanism: 'direct' as const,
@@ -574,9 +581,9 @@ app.post('/api/simulate', async (_req, res) => {
           summary: {
             shortfall: liabilities - droppedReserve,
             recoveryAmount,
-            recoveryAmountUsd: DIRECT_WALLET_CAP_USD,
+            recoveryAmountUsd,
             fromRatio: 99,
-            toRatio: 105,
+            toRatio: 100,
             feedDescription: feedDesc,
             mechanism: 'direct',
           },
@@ -586,6 +593,13 @@ app.post('/api/simulate', async (_req, res) => {
           isSolvent: true,
           timestamp: Math.floor(recoveryTime / 1000),
           blockNumber: events.length + 1,
+        })
+
+        // Log agent activity
+        agentActivity.push({
+          action: 'recovery',
+          timestamp: Math.floor(recoveryTime / 1000),
+          details: `Direct wallet swap complete. Recovered ${fmtRecovery} stETH (${fmtUsd}) via Uniswap.`,
         })
 
         if (!agentMetrics) {
@@ -647,6 +661,14 @@ app.post('/api/simulate-large', async (_req, res) => {
     })
 
     const ratio = Math.round((droppedReserve / liabilities) * 100)
+    const recoveryAmountUsd = Math.round(recoveryAmount * STETH_USD_PRICE)
+
+    // Log agent activity
+    agentActivity.push({
+      action: 'monitor',
+      timestamp: Math.floor(now / 1000),
+      details: `Undercollateralization detected \u2014 ratio dropped to ${ratio}%. Deficit too large for direct swap, routing to dark pool.`,
+    })
 
     res.json({
       ok: true,
@@ -669,6 +691,7 @@ app.post('/api/simulate-large', async (_req, res) => {
 
         const recoveryTime = Date.now()
         const fmtRecovery = recoveryAmount.toLocaleString('en-US', { maximumFractionDigits: 0 })
+        const fmtUsd = '$' + recoveryAmountUsd.toLocaleString('en-US')
         const orderId = 'DP-' + Math.random().toString(36).slice(2, 8).toUpperCase()
         const zkProof = '0x' + Array.from({ length: 8 }, () => Math.random().toString(16).slice(2, 4)).join('')
 
@@ -692,6 +715,7 @@ app.post('/api/simulate-large', async (_req, res) => {
           summary: {
             shortfall: liabilities - droppedReserve,
             recoveryAmount,
+            recoveryAmountUsd,
             fromRatio: 95,
             toRatio: 105,
             feedDescription: feedDesc,
@@ -703,6 +727,13 @@ app.post('/api/simulate-large', async (_req, res) => {
           isSolvent: true,
           timestamp: Math.floor(recoveryTime / 1000),
           blockNumber: events.length + 1,
+        })
+
+        // Log agent activity
+        agentActivity.push({
+          action: 'recovery',
+          timestamp: Math.floor(recoveryTime / 1000),
+          details: `Dark pool recovery complete. Filled ${fmtRecovery} stETH (${fmtUsd}) via confidential TEE matching.`,
         })
 
         if (!agentMetrics) {
@@ -762,7 +793,15 @@ app.post('/api/simulate-failure', async (_req, res) => {
     })
 
     const fmtRecovery = recoveryAmount.toLocaleString('en-US', { maximumFractionDigits: 0 })
+    const fmtUsd = '$' + Math.round(recoveryAmount * STETH_USD_PRICE).toLocaleString('en-US')
     const orderId = 'DP-' + Math.random().toString(36).slice(2, 8).toUpperCase()
+
+    // Log agent activity
+    agentActivity.push({
+      action: 'monitor',
+      timestamp: Math.floor(now / 1000),
+      details: `Undercollateralization detected \u2014 ratio dropped to 95%. Routing ${fmtRecovery} stETH (${fmtUsd}) to dark pool.`,
+    })
 
     const recoverySteps = [
       { step: 'encryptRequest' as const, success: true, timestamp: now, durationMs: 80, mechanism: 'darkpool' as const,
@@ -814,6 +853,13 @@ app.post('/api/simulate-failure', async (_req, res) => {
     }
 
     healthMonitor.recordAgentReport(now - 60000)
+
+    // Log agent activity
+    agentActivity.push({
+      action: 'recovery',
+      timestamp: Math.floor(now / 1000),
+      details: `Dark pool recovery FAILED. TEE matching engine timed out for ${fmtRecovery} stETH (${fmtUsd}). Manual intervention required.`,
+    })
 
     res.json({
       ok: true,
