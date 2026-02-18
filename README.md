@@ -1,8 +1,10 @@
 # Self-Healing Reserve
 
-Autonomous proof-of-reserve system combining **Chainlink CRE confidential compute** with **Coinbase agentic wallets**. A CRE workflow privately verifies reserves inside a TEE, publishes only a boolean attestation on-chain, and when reserves are undercollateralized, a recovery agent autonomously rebalances via the awal wallet CLI.
+Autonomous proof-of-reserve system combining **Chainlink CRE confidential compute** with **Coinbase agentic wallets**. A CRE workflow privately verifies reserves inside a TEE, publishes only a boolean attestation on-chain, and when reserves are undercollateralized, a recovery agent autonomously rebalances via the awal wallet CLI. Live reserve data is sourced from the **Chainlink stETH Proof of Reserve** feed on Ethereum mainnet.
 
 Built for **Chainlink Convergence Hackathon 2026**.
+
+**[Live Demo Dashboard](http://76.13.177.213/cre/)** — see it running with real Chainlink data.
 
 ## Architecture
 
@@ -19,9 +21,9 @@ Built for **Chainlink Convergence Hackathon 2026**.
                                                   ┌─────────────────────────┐
                                                   │   Recovery Agent        │
                                                   │   watches events        │
-                                                  │   ┌─ check balance      │
-                                                  │   ├─ trade ETH → USDC   │
-                                                  │   └─ send to reserve    │
+                                                  │   ┌─ check USDC balance │
+                                                  │   ├─ swap USDC → stETH  │
+                                                  │   └─ send stETH to PoR  │
                                                   └──────────┬──────────────┘
                                                              │ CLI
                                                              ▼
@@ -42,9 +44,9 @@ The agent intelligently selects the optimal recovery method based on deficit siz
 | **Direct Wallet** | Small deficits (<$10K) | Public txs | Fast (seconds) | Simple |
 | **Dark Pool** | Large deficits (>$10K) | Confidential | Moderate (minutes) | TEE-based |
 
-### Dark Pool Recovery (NEW)
+### Dark Pool Recovery (Proof of Concept)
 
-For large collateral deficits where market impact and confidentiality are critical:
+For large collateral deficits where market impact and confidentiality are critical. This module demonstrates the architecture for TEE-based confidential matching — the contract and agent run in simulation mode, with full implementation pending Chainlink Confidential Compute availability.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -129,7 +131,9 @@ The demo will:
 ```
 contracts/
   src/ReserveAttestation.sol        Solidity contract (bool attestation + events)
+  darkpool/CREDarkPool.sol          Dark pool contract (proof of concept)
   abi/ReserveAttestation.ts         TypeScript ABI (as const)
+  abi/ChainlinkAggregator.ts        Chainlink EACAggregatorProxy ABI
 
 workflow/
   main.ts                           CRE workflow (ConfidentialHTTP pattern)
@@ -140,7 +144,9 @@ mock-api/
   server.ts                         Express server on :3001
 
 dashboard/
-  server.ts                         Express backend on :3002 (aggregates chain + API data)
+  server.ts                         Express backend on :3002 (Chainlink PoR + chain data)
+  health.ts                         Health monitor (feed freshness, RPC, API)
+  alerts.ts                         Alert system (email, Slack, Discord)
   public/index.html                 Single-page live dashboard (no build step)
 
 agent/
@@ -148,23 +154,32 @@ agent/
   monitor.ts                        viem event watcher (ReserveStatusUpdated)
   recovery.ts                       Recovery orchestration (selects mechanism)
   wallet.ts                         awal CLI wrapper (dry-run capable)
-  darkpool.ts                       Confidential dark pool recovery module
+  darkpool.ts                       Dark pool recovery (simulation mode)
+  metrics.ts                        Recovery metrics tracking
   config.ts                         Env-based config loader
 
 demo/
   run.ts                            End-to-end orchestrator
   deploy-contract.ts                Compile (solc) + deploy via viem
   simulate-workflow.ts              Local CRE workflow simulation
+
+deployment/
+  nginx-cre.conf                    Nginx reverse proxy config
+  self-healing-reserve.service      systemd service file
+  deploy.sh                         VPS deployment script
 ```
 
 ## Dashboard
 
-A live web dashboard at `http://localhost:3002` provides a visual view of the system during demos:
+A live web dashboard provides real-time visibility into the system. **[View the live demo](http://76.13.177.213/cre/)**.
 
+- **Chainlink PoR data** — live stETH Proof of Reserve from Ethereum mainnet (feed address, round ID, last updated)
 - **Attestation status** — large green/red indicator showing current solvency
-- **Reserve data** — total reserves, liabilities, and collateralization ratio
+- **Reserve data** — total reserves, liabilities, and collateralization ratio sourced from Chainlink
+- **Simulate recovery** — trigger an undercollateralization event using real Chainlink data, watch the agent recover to 105%
+- **Recovery history** — step-by-step breakdown (check USDC wallet → Uniswap swap → send stETH to PoR)
+- **Health monitoring** — Chainlink feed freshness, blockchain connectivity, API status
 - **Event timeline** — scrollable history of on-chain `ReserveStatusUpdated` events
-- **Agent activity** — recovery actions taken by the agent
 
 The dashboard auto-starts with `npm run demo`, or run standalone:
 
@@ -210,8 +225,8 @@ Main attestation contract:
 - **`onReport(bytes, bytes)`** — CRE-compatible callback for production DON integration
 - **`ReserveStatusUpdated(bool isSolvent, uint256 timestamp)`** — Event the agent monitors
 
-### CREDarkPool.sol (NEW)
-Confidential dark pool for large collateral fills:
+### CREDarkPool.sol (Proof of Concept)
+Confidential dark pool design for large collateral fills. Runs in simulation mode — ZK proof verification and TEE attestation validation are stubbed, pending Chainlink Confidential Compute availability.
 - **`requestCollateral(bytes32 encryptedAmount, uint256 premiumBps, uint256 timeout)`** — Submit confidential request
 - **`confidentialFill(bytes32 requestId, bytes calldata zkProof, bytes32 teeAttestation)`** — TEE-verified fill
 - **Private matching** — Orders matched inside TEE, only boolean status revealed
@@ -235,9 +250,9 @@ When `ReserveStatusUpdated(false, ...)` is detected, the agent intelligently sel
 
 ### Small Deficits (<$10K): Direct Wallet
 Fast, simple recovery via Coinbase agentic wallet:
-1. **Check balance** — `npx awal@latest balance --json`
-2. **Trade ETH → USDC** — `npx awal@latest trade 0.01 eth usdc --json`
-3. **Send USDC to reserve** — `npx awal@latest send 10 <reserve-address> --json`
+1. **Check USDC balance** — `npx awal@latest balance --json`
+2. **Swap USDC → stETH** — Uniswap swap to acquire the needed stETH
+3. **Send stETH to PoR reserve** — `npx awal@latest send <amount> <reserve-address> --json`
 
 ### Large Deficits (>$10K): Dark Pool
 Confidential recovery via decentralized dark pool:
@@ -254,16 +269,19 @@ In dry-run mode (default), commands are logged but not executed.
 |---|---|---|
 | `RPC_URL` | `http://127.0.0.1:8545` | Ethereum JSON-RPC endpoint |
 | `MOCK_API_URL` | `http://127.0.0.1:3001` | Mock reserve API |
-| `CONTRACT_ADDRESS` | — | Deployed contract address |
-| `RESERVE_ADDRESS` | `0x000...000` | Where recovery USDC is sent |
+| `CONTRACT_ADDRESS` | — | Deployed ReserveAttestation contract address |
+| `RESERVE_ADDRESS` | `0x000...000` | Where recovery stETH is sent |
+| `CHAINLINK_FEED_ADDRESS` | `0xAd41...CE7` | Chainlink stETH PoR feed (Ethereum mainnet) |
+| `DASHBOARD_PORT` | `3002` | Dashboard server port |
 | `AWAL_DRY_RUN` | `true` | Set `false` to execute real wallet transactions |
 
 ## Stack
 
-- **Solidity 0.8.19** + solc — smart contract
+- **Solidity 0.8.19** + solc — smart contracts
 - **TypeScript** + tsx — all runtime code
-- **viem** — Ethereum client (deploy, write, watch events)
-- **Express** — mock reserve API
-- **Hardhat** — local EVM node
-- **@chainlink/cre-sdk** — workflow (CRE runtime dependency)
+- **viem** — Ethereum client (deploy, write, watch events, read Chainlink feeds)
+- **Chainlink Proof of Reserve** — live stETH PoR feed on Ethereum mainnet
+- **@chainlink/cre-sdk** — CRE workflow (confidential compute runtime)
+- **Express** — dashboard backend + mock reserve API
+- **Hardhat** — local EVM node for demo
 - **awal** — Coinbase agentic wallet CLI
