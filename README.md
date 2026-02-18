@@ -41,8 +41,8 @@ The agent intelligently selects the optimal recovery method based on deficit siz
 
 | Mechanism | Best For | Privacy | Speed | Complexity |
 |-----------|----------|---------|-------|------------|
-| **Direct Wallet** | Small deficits (<$10K) | Public txs | Fast (seconds) | Simple |
-| **Dark Pool** | Large deficits (>$10K) | Confidential | Moderate (minutes) | TEE-based |
+| **Direct Wallet** | Small deficits (<$50M) | Public txs | Fast (seconds) | Simple |
+| **Dark Pool** | Large deficits (>$50M) | Confidential | Moderate (minutes) | TEE-based |
 
 ### Dark Pool Recovery (Proof of Concept)
 
@@ -176,8 +176,11 @@ A live web dashboard provides real-time visibility into the system. **[View the 
 - **Chainlink PoR data** — live stETH Proof of Reserve from Ethereum mainnet (feed address, round ID, last updated)
 - **Attestation status** — large green/red indicator showing current solvency
 - **Reserve data** — total reserves, liabilities, and collateralization ratio sourced from Chainlink
-- **Simulate recovery** — trigger an undercollateralization event using real Chainlink data, watch the agent recover to 105%
-- **Recovery history** — step-by-step breakdown (check USDC wallet → Uniswap swap → send stETH to PoR)
+- **Simulate recovery** — two scenarios using real Chainlink data:
+  - *Small deficit* — agent swaps $50M USDC → 20K stETH via direct Uniswap swap (3 steps)
+  - *Large deficit* — agent routes ~900K stETH through a confidential dark pool with TEE matching and ZK settlement (4 steps)
+  - *Failed recovery* — dark pool TEE matching times out, demonstrating failure handling
+- **Recovery history** — step-by-step breakdown with mechanism badges (Direct Wallet Swap / Confidential Dark Pool)
 - **Health monitoring** — Chainlink feed freshness, blockchain connectivity, API status
 - **Event timeline** — scrollable history of on-chain `ReserveStatusUpdated` events
 
@@ -246,20 +249,20 @@ For the demo, `demo/simulate-workflow.ts` replicates this logic locally.
 
 ## Recovery Agent
 
-When `ReserveStatusUpdated(false, ...)` is detected, the agent intelligently selects the recovery mechanism:
+When `ReserveStatusUpdated(false, ...)` is detected, the agent intelligently selects the recovery mechanism based on deficit size:
 
-### Small Deficits (<$10K): Direct Wallet
-Fast, simple recovery via Coinbase agentic wallet:
-1. **Check USDC balance** — `npx awal@latest balance --json`
-2. **Swap USDC → stETH** — Uniswap swap to acquire the needed stETH
-3. **Send stETH to PoR reserve** — `npx awal@latest send <amount> <reserve-address> --json`
+### Small Deficits (<$50M): Direct Wallet Swap
+Fast, simple recovery via Coinbase agentic wallet — the agent swaps up to $50M USDC into stETH and sends it directly to the reserve:
+1. **Check USDC balance** — verify wallet has funds available
+2. **Swap USDC → stETH** — Uniswap DEX swap (e.g. $50M USDC → 20,000 stETH)
+3. **Send stETH to PoR reserve** — transfer stETH back into the reserve fund
 
-### Large Deficits (>$10K): Dark Pool
-Confidential recovery via decentralized dark pool:
-1. **Encrypt request** — Deficit amount encrypted with TEE public key
-2. **Submit to pool** — `CREDarkPool.requestCollateral()` with premium incentive
-3. **TEE matching** — Market makers fill privately inside Chainlink Confidential Compute
-4. **ZK settlement** — Proof of valid fill, amounts remain private
+### Large Deficits (>$50M): Confidential Dark Pool
+For deficits too large for a direct swap without market impact, the agent routes through a confidential dark pool:
+1. **Encrypt order** — deficit amount encrypted with TEE public key (AES-256-GCM)
+2. **Submit to dark pool** — `CREDarkPool.requestCollateral()` with encrypted order
+3. **TEE matching** — market makers fill privately inside Chainlink Confidential Compute, no order details revealed
+4. **ZK settlement** — matched trade settled on-chain with ZK proof; amounts remain private
 
 In dry-run mode (default), commands are logged but not executed.
 
