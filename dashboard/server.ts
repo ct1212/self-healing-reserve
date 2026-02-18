@@ -24,6 +24,9 @@ const BIND_HOST = process.env.BIND_HOST || '127.0.0.1' // Localhost only for pro
 const CHAINLINK_FEED_ADDRESS = (process.env.CHAINLINK_FEED_ADDRESS || '0xAd410E655C0fE4741F573152592eeb766e686CE7') as `0x${string}`
 const CHAINLINK_RPC = process.env.CHAINLINK_RPC || 'https://ethereum-rpc.publicnode.com'
 const EXPECTED_RESERVES_MULTIPLIER = Number(process.env.EXPECTED_RESERVES_MULTIPLIER || '0.95')
+const DIRECT_WALLET_CAP_USD = 50_000_000
+const STETH_USD_PRICE = 2_500
+const DIRECT_WALLET_CAP_STETH = DIRECT_WALLET_CAP_USD / STETH_USD_PRICE // 20,000 stETH
 
 // Mainnet client for Chainlink reads
 const mainnetClient = createPublicClient({
@@ -494,26 +497,22 @@ app.post('/api/alerts/test', async (_req, res) => {
   }
 })
 
-// POST /api/simulate - Simulate a recovery scenario
-// Snapshots real Chainlink data, drops ratio to 95%, then recovers to 105%
+// POST /api/simulate - Simulate a small deficit recovery (direct wallet swap)
+// Snapshots real Chainlink data, drops ratio to 99%, agent swaps $50M via wallet
 app.post('/api/simulate', async (_req, res) => {
   try {
     const now = Date.now()
 
-    // Snapshot real Chainlink data
     const cl = await fetchChainlinkData()
     const realReserve = Number(cl.answer)
     const feedDesc = cl.description
 
-    // Math: normal liabilities = realReserve * 0.95 (so normal ratio ≈ 105%)
     const liabilities = realReserve * EXPECTED_RESERVES_MULTIPLIER
-    // Drop reserve to 95% of liabilities
-    const droppedReserve = liabilities * 0.95
-    // Recovery target: 105% collateralization
-    const targetReserve = liabilities * 1.05
-    const recoveryAmount = targetReserve - droppedReserve
+    // Drop reserve to 99% of liabilities (small shortfall)
+    const droppedReserve = liabilities * 0.99
+    // Recovery: wallet directly swaps up to $50M (20K stETH)
+    const recoveryAmount = DIRECT_WALLET_CAP_STETH
 
-    // Set override to insolvent (expires after 10s as safety net)
     overrideReserves = {
       totalReserve: droppedReserve,
       totalLiabilities: liabilities,
@@ -521,13 +520,11 @@ app.post('/api/simulate', async (_req, res) => {
       expiresAt: now + 10_000,
     }
 
-    // Also override attestation status to match
     overrideAttestation = {
       isSolvent: false,
       expiresAt: now + 10_000,
     }
 
-    // Record undercollateralization event
     events.push({
       isSolvent: false,
       timestamp: Math.floor(now / 1000),
@@ -536,36 +533,36 @@ app.post('/api/simulate', async (_req, res) => {
 
     const ratio = Math.round((droppedReserve / liabilities) * 100)
 
-    // Respond immediately so frontend can show insolvent state
     res.json({
       ok: true,
       phase: 'undercollateralized',
+      mechanism: 'direct',
       data: {
         totalReserve: droppedReserve,
         totalLiabilities: liabilities,
         ratio,
         feedDescription: feedDesc,
+        recoveryAmount,
       },
     })
 
     // After 3 seconds, trigger recovery
     setTimeout(async () => {
       try {
-        // Clear overrides — reverts to Chainlink data + real contract
         overrideReserves = null
         overrideAttestation = null
 
         const recoveryTime = Date.now()
+        const fmtRecovery = recoveryAmount.toLocaleString('en-US', { maximumFractionDigits: 0 })
+        const fmtUsd = '$' + DIRECT_WALLET_CAP_USD.toLocaleString('en-US')
 
-        // Record recovery steps with real amounts
-        const fmtRecovery = recoveryAmount.toLocaleString('en-US', { maximumFractionDigits: 2 })
         const recoverySteps = [
-          { step: 'checkBalance' as const, success: true, timestamp: recoveryTime, durationMs: 50,
-            data: { balance: '$2,500,000,000 in USDC available in wallet' } },
-          { step: 'trade' as const, success: true, timestamp: recoveryTime + 100, durationMs: 150,
-            data: { amount: 'Swapped USDC → ' + fmtRecovery + ' stETH on Uniswap' } },
-          { step: 'send' as const, success: true, timestamp: recoveryTime + 300, durationMs: 100,
-            data: { amount: fmtRecovery + ' stETH sent to stETH reserve', tx: '0x' + Math.random().toString(16).slice(2, 10) + '...' } },
+          { step: 'checkBalance' as const, success: true, timestamp: recoveryTime, durationMs: 50, mechanism: 'direct' as const,
+            data: { balance: fmtUsd + ' USDC available in wallet' } },
+          { step: 'trade' as const, success: true, timestamp: recoveryTime + 100, durationMs: 150, mechanism: 'direct' as const,
+            data: { amount: 'Swapped ' + fmtUsd + ' USDC \u2192 ' + fmtRecovery + ' stETH on Uniswap' } },
+          { step: 'send' as const, success: true, timestamp: recoveryTime + 300, durationMs: 100, mechanism: 'direct' as const,
+            data: { amount: fmtRecovery + ' stETH sent to reserve', tx: '0x' + Math.random().toString(16).slice(2, 10) + '...' } },
         ]
 
         recoveryHistory.push({
@@ -573,33 +570,29 @@ app.post('/api/simulate', async (_req, res) => {
           success: true,
           durationMs: 300,
           steps: recoverySteps,
+          mechanism: 'direct',
           summary: {
             shortfall: liabilities - droppedReserve,
             recoveryAmount,
-            fromRatio: 95,
+            recoveryAmountUsd: DIRECT_WALLET_CAP_USD,
+            fromRatio: 99,
             toRatio: 105,
             feedDescription: feedDesc,
+            mechanism: 'direct',
           },
         })
 
-        // Record solvent event
         events.push({
           isSolvent: true,
           timestamp: Math.floor(recoveryTime / 1000),
           blockNumber: events.length + 1,
         })
 
-        // Update agent metrics
         if (!agentMetrics) {
           agentMetrics = {
-            totalRecoveries: 0,
-            successfulRecoveries: 0,
-            failedRecoveries: 0,
-            successRate: 0,
-            avgResponseTimeMs: 0,
-            uptimeSeconds: 60,
-            errorCount: 0,
-            recentErrors: [],
+            totalRecoveries: 0, successfulRecoveries: 0, failedRecoveries: 0,
+            successRate: 0, avgResponseTimeMs: 0, uptimeSeconds: 60,
+            errorCount: 0, recentErrors: [],
           }
         }
 
@@ -618,24 +611,138 @@ app.post('/api/simulate', async (_req, res) => {
   }
 })
 
-// POST /api/simulate-failure - Simulate a failed recovery scenario
-// Snapshots real Chainlink data, drops ratio to 95%, recovery fails
-app.post('/api/simulate-failure', async (_req, res) => {
+// POST /api/simulate-large - Simulate a large deficit recovery (confidential dark pool)
+// Snapshots real Chainlink data, drops ratio to 95%, agent routes through dark pool
+app.post('/api/simulate-large', async (_req, res) => {
   try {
     const now = Date.now()
 
-    // Snapshot real Chainlink data
     const cl = await fetchChainlinkData()
     const realReserve = Number(cl.answer)
     const feedDesc = cl.description
 
-    // Same math as simulate
+    const liabilities = realReserve * EXPECTED_RESERVES_MULTIPLIER
+    // Drop reserve to 95% of liabilities (large shortfall)
+    const droppedReserve = liabilities * 0.95
+    // Recovery target: 105% collateralization
+    const targetReserve = liabilities * 1.05
+    const recoveryAmount = targetReserve - droppedReserve
+
+    overrideReserves = {
+      totalReserve: droppedReserve,
+      totalLiabilities: liabilities,
+      isSolvent: false,
+      expiresAt: now + 12_000,
+    }
+
+    overrideAttestation = {
+      isSolvent: false,
+      expiresAt: now + 12_000,
+    }
+
+    events.push({
+      isSolvent: false,
+      timestamp: Math.floor(now / 1000),
+      blockNumber: events.length + 1,
+    })
+
+    const ratio = Math.round((droppedReserve / liabilities) * 100)
+
+    res.json({
+      ok: true,
+      phase: 'undercollateralized',
+      mechanism: 'darkpool',
+      data: {
+        totalReserve: droppedReserve,
+        totalLiabilities: liabilities,
+        ratio,
+        feedDescription: feedDesc,
+        recoveryAmount,
+      },
+    })
+
+    // After 4 seconds, trigger dark pool recovery
+    setTimeout(async () => {
+      try {
+        overrideReserves = null
+        overrideAttestation = null
+
+        const recoveryTime = Date.now()
+        const fmtRecovery = recoveryAmount.toLocaleString('en-US', { maximumFractionDigits: 0 })
+        const orderId = 'DP-' + Math.random().toString(36).slice(2, 8).toUpperCase()
+        const zkProof = '0x' + Array.from({ length: 8 }, () => Math.random().toString(16).slice(2, 4)).join('')
+
+        const recoverySteps = [
+          { step: 'encryptRequest' as const, success: true, timestamp: recoveryTime, durationMs: 80, mechanism: 'darkpool' as const,
+            data: { algorithm: 'AES-256-GCM', payload: '128-byte encrypted order' } },
+          { step: 'submitToPool' as const, success: true, timestamp: recoveryTime + 100, durationMs: 120, mechanism: 'darkpool' as const,
+            data: { orderId, venue: 'Chainlink Confidential Dark Pool', amount: fmtRecovery + ' stETH' } },
+          { step: 'monitorFill' as const, success: true, timestamp: recoveryTime + 250, durationMs: 1800, mechanism: 'darkpool' as const,
+            data: { fillPrice: 'TWAP \u00B1 0.05%', matchedCounterparties: 3, executionLatency: '1.8s' } },
+          { step: 'settle' as const, success: true, timestamp: recoveryTime + 2100, durationMs: 200, mechanism: 'darkpool' as const,
+            data: { zkProof, settlementTx: '0x' + Math.random().toString(16).slice(2, 10) + '...', gasUsed: '145,230' } },
+        ]
+
+        recoveryHistory.push({
+          timestamp: recoveryTime,
+          success: true,
+          durationMs: 2200,
+          steps: recoverySteps,
+          mechanism: 'darkpool',
+          summary: {
+            shortfall: liabilities - droppedReserve,
+            recoveryAmount,
+            fromRatio: 95,
+            toRatio: 105,
+            feedDescription: feedDesc,
+            mechanism: 'darkpool',
+          },
+        })
+
+        events.push({
+          isSolvent: true,
+          timestamp: Math.floor(recoveryTime / 1000),
+          blockNumber: events.length + 1,
+        })
+
+        if (!agentMetrics) {
+          agentMetrics = {
+            totalRecoveries: 0, successfulRecoveries: 0, failedRecoveries: 0,
+            successRate: 0, avgResponseTimeMs: 0, uptimeSeconds: 60,
+            errorCount: 0, recentErrors: [],
+          }
+        }
+
+        agentMetrics.totalRecoveries++
+        agentMetrics.successfulRecoveries++
+        agentMetrics.successRate = (agentMetrics.successfulRecoveries / agentMetrics.totalRecoveries) * 100
+        agentMetrics.avgResponseTimeMs = ((agentMetrics.avgResponseTimeMs * (agentMetrics.totalRecoveries - 1)) + 2200) / agentMetrics.totalRecoveries
+        healthMonitor.recordAgentReport(recoveryTime - 60000)
+      } catch (err) {
+        console.error('[simulate-large] Recovery phase failed:', err)
+      }
+    }, 4000)
+  } catch (err) {
+    console.error('[simulate-large] Error:', err)
+    res.status(500).json({ error: 'Failed to simulate large recovery' })
+  }
+})
+
+// POST /api/simulate-failure - Simulate a failed dark pool recovery
+// Snapshots real Chainlink data, drops ratio to 95%, dark pool matching times out
+app.post('/api/simulate-failure', async (_req, res) => {
+  try {
+    const now = Date.now()
+
+    const cl = await fetchChainlinkData()
+    const realReserve = Number(cl.answer)
+    const feedDesc = cl.description
+
     const liabilities = realReserve * EXPECTED_RESERVES_MULTIPLIER
     const droppedReserve = liabilities * 0.95
     const targetReserve = liabilities * 1.05
     const recoveryAmount = targetReserve - droppedReserve
 
-    // Set override to insolvent (expires after 15s)
     overrideReserves = {
       totalReserve: droppedReserve,
       totalLiabilities: liabilities,
@@ -643,55 +750,52 @@ app.post('/api/simulate-failure', async (_req, res) => {
       expiresAt: now + 15_000,
     }
 
-    // Also override attestation status to match
     overrideAttestation = {
       isSolvent: false,
       expiresAt: now + 15_000,
     }
 
-    // Record undercollateralization event
     events.push({
       isSolvent: false,
       timestamp: Math.floor(now / 1000),
       blockNumber: events.length + 1,
     })
 
-    // Record failed recovery steps with real amounts
-    const fmtRecovery = recoveryAmount.toLocaleString('en-US', { maximumFractionDigits: 2 })
+    const fmtRecovery = recoveryAmount.toLocaleString('en-US', { maximumFractionDigits: 0 })
+    const orderId = 'DP-' + Math.random().toString(36).slice(2, 8).toUpperCase()
+
     const recoverySteps = [
-      { step: 'checkBalance' as const, success: true, timestamp: now, durationMs: 50,
-        data: { balance: '$2,500,000,000 in USDC available in wallet' } },
-      { step: 'trade' as const, success: false, timestamp: now + 100, durationMs: 200,
-        data: { error: 'Uniswap USDC→stETH swap failed — needed ' + fmtRecovery + ' stETH but pool depth insufficient' } },
-      { step: 'send' as const, success: false, timestamp: now + 300, durationMs: 0,
-        data: { error: 'Skipped — previous step failed' } },
+      { step: 'encryptRequest' as const, success: true, timestamp: now, durationMs: 80, mechanism: 'darkpool' as const,
+        data: { algorithm: 'AES-256-GCM', payload: '128-byte encrypted order' } },
+      { step: 'submitToPool' as const, success: true, timestamp: now + 100, durationMs: 120, mechanism: 'darkpool' as const,
+        data: { orderId, venue: 'Chainlink Confidential Dark Pool', amount: fmtRecovery + ' stETH' } },
+      { step: 'monitorFill' as const, success: false, timestamp: now + 250, durationMs: 5000, mechanism: 'darkpool' as const,
+        data: { error: 'TEE matching engine timed out \u2014 insufficient dark pool liquidity for ' + fmtRecovery + ' stETH' } },
+      { step: 'settle' as const, success: false, timestamp: now + 5300, durationMs: 0, mechanism: 'darkpool' as const,
+        data: { error: 'Skipped \u2014 previous step failed' } },
     ]
 
     recoveryHistory.push({
       timestamp: now,
       success: false,
-      durationMs: 250,
+      durationMs: 5200,
       steps: recoverySteps,
+      mechanism: 'darkpool',
       summary: {
         shortfall: liabilities - droppedReserve,
         recoveryAmount,
         fromRatio: 95,
         toRatio: 105,
         feedDescription: feedDesc,
+        mechanism: 'darkpool',
       },
     })
 
-    // Update agent metrics
     if (!agentMetrics) {
       agentMetrics = {
-        totalRecoveries: 0,
-        successfulRecoveries: 0,
-        failedRecoveries: 0,
-        successRate: 0,
-        avgResponseTimeMs: 0,
-        uptimeSeconds: 60,
-        errorCount: 0,
-        recentErrors: [],
+        totalRecoveries: 0, successfulRecoveries: 0, failedRecoveries: 0,
+        successRate: 0, avgResponseTimeMs: 0, uptimeSeconds: 60,
+        errorCount: 0, recentErrors: [],
       }
     }
 
@@ -700,8 +804,8 @@ app.post('/api/simulate-failure', async (_req, res) => {
     agentMetrics.errorCount++
     agentMetrics.successRate = (agentMetrics.successfulRecoveries / agentMetrics.totalRecoveries) * 100
     agentMetrics.recentErrors.push({
-      step: 'trade',
-      error: 'Insufficient liquidity in pool',
+      step: 'monitorFill',
+      error: 'TEE matching engine timed out',
       timestamp: now,
     })
 
@@ -711,15 +815,15 @@ app.post('/api/simulate-failure', async (_req, res) => {
 
     healthMonitor.recordAgentReport(now - 60000)
 
-    // Stays insolvent — override expires after 15s
     res.json({
       ok: true,
       phase: 'failed',
+      mechanism: 'darkpool',
       data: {
         totalReserve: droppedReserve,
         totalLiabilities: liabilities,
-        failedStep: 'Execute Trade',
-        error: 'Insufficient liquidity in pool',
+        failedStep: 'Dark Pool Fill',
+        error: 'TEE matching engine timed out',
         feedDescription: feedDesc,
       },
     })

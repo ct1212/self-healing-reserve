@@ -21,7 +21,7 @@ export async function executeRecovery(config: AgentConfig, deficitAmount?: strin
   console.log('[recovery] Reserve undercollateralized — initiating recovery...')
 
   // Choose mechanism based on deficit size
-  const useDarkPool = deficitAmount && parseFloat(deficitAmount) > 10000; // >$10K use dark pool
+  const useDarkPool = deficitAmount && parseFloat(deficitAmount) > 50_000_000; // >$50M use dark pool
   
   if (useDarkPool) {
     console.log('[recovery] Large deficit detected — using confidential dark pool...')

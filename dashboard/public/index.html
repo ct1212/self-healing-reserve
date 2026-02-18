@@ -490,6 +490,43 @@
     .step-data { font-size: 0.72rem; color: #999; margin-top: 3px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
     .step-duration { font-size: 0.75rem; color: #666; }
 
+    .mechanism-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 3px;
+      font-size: 0.65rem;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 8px;
+    }
+
+    .mechanism-badge.direct {
+      background: rgba(34, 197, 94, 0.15);
+      color: #22c55e;
+      border: 1px solid rgba(34, 197, 94, 0.3);
+    }
+
+    .mechanism-badge.darkpool {
+      background: rgba(139, 139, 255, 0.15);
+      color: #8b8bff;
+      border: 1px solid rgba(139, 139, 255, 0.3);
+    }
+
+    .btn-darkpool {
+      background: #8b8bff !important;
+      color: #000 !important;
+      font-weight: bold;
+      border-color: #8b8bff !important;
+      padding: 10px 24px !important;
+      font-size: 0.85rem !important;
+    }
+
+    .btn-darkpool:hover {
+      background: #7070ff !important;
+      border-color: #7070ff !important;
+    }
+
     .recovery-summary {
       padding: 12px 16px;
       border-radius: 6px;
@@ -827,6 +864,7 @@
     <p class="demo-desc">Trigger scenarios to see the self-healing pipeline in action.</p>
     <div class="demo-btn-group">
       <button id="btn-simulate" class="btn btn-primary" onclick="simulateRecovery()">Simulate Recovery</button>
+      <button id="btn-simulate-large" class="btn btn-darkpool" onclick="simulateLargeDeficit()">Simulate Large Deficit</button>
       <button id="btn-simulate-fail" class="btn btn-danger-outline" onclick="simulateFailure()">Simulate Failed Recovery</button>
     </div>
   </div>
@@ -954,7 +992,7 @@
       <div style="margin-bottom: 12px;">
         <div class="stat-row">
           <span class="stat-label">Current Strategy</span>
-          <span class="stat-value">3-Step Linear Recovery</span>
+          <span class="stat-value" id="strategy-label">---</span>
         </div>
       </div>
       <div id="recovery-steps">
@@ -1024,6 +1062,10 @@
       checkBalance: { name: 'Check Wallet Balance', desc: 'Verify USDC available for recovery swap' },
       trade: { name: 'Uniswap DEX Swap', desc: 'Swap USDC to stETH on Uniswap' },
       send: { name: 'Send to Reserve', desc: 'Transfer stETH back to the reserve fund' },
+      encryptRequest: { name: 'Encrypt Order', desc: 'Encrypt trade details for confidential matching in TEE' },
+      submitToPool: { name: 'Submit to Dark Pool', desc: 'Submit encrypted order to confidential liquidity pool' },
+      monitorFill: { name: 'Monitor Fill', desc: 'Wait for TEE matching engine to fill the order' },
+      settle: { name: 'Settle On-Chain', desc: 'Settle matched trade on-chain with ZK proof' },
     };
 
     function formatNumber(n) {
@@ -1197,10 +1239,24 @@
       document.getElementById('svc-agent').className = 'svc-dot ' + (services.agent ? 'running' : 'stopped');
     }
 
+    function disableAllSimBtns() {
+      document.getElementById('btn-simulate').disabled = true;
+      document.getElementById('btn-simulate-large').disabled = true;
+      document.getElementById('btn-simulate-fail').disabled = true;
+    }
+
+    function enableAllSimBtns() {
+      var b1 = document.getElementById('btn-simulate');
+      var b2 = document.getElementById('btn-simulate-large');
+      var b3 = document.getElementById('btn-simulate-fail');
+      b1.disabled = false; b1.textContent = 'Simulate Recovery';
+      b2.disabled = false; b2.textContent = 'Simulate Large Deficit';
+      b3.disabled = false; b3.textContent = 'Simulate Failed Recovery';
+    }
+
     async function simulateRecovery() {
       var btn = document.getElementById('btn-simulate');
-      btn.disabled = true;
-      document.getElementById('btn-simulate-fail').disabled = true;
+      disableAllSimBtns();
       btn.textContent = 'Triggering...';
       try {
         var res = await fetch('api/simulate', { method: 'POST' });
@@ -1208,49 +1264,75 @@
         if (data.ok) {
           showToast(
             'Undercollateralized!',
-            'Reserve ratio dropped to ' + data.data.ratio + '%. Agent recovering in 3s...',
+            'Reserve ratio dropped to ' + data.data.ratio + '%. Agent swapping via wallet...',
             'error'
           );
           poll();
-          // Keep button disabled during the 3s recovery window
-          btn.textContent = 'Recovering...';
+          btn.textContent = 'Wallet swapping...';
           setTimeout(function() {
             showToast(
               'Recovery Complete',
-              'Agent restored solvency. 3 steps executed.',
+              'Agent restored solvency via direct wallet swap ($50M USDC \u2192 stETH).',
               'success'
             );
             poll();
-            btn.disabled = false;
-            document.getElementById('btn-simulate-fail').disabled = false;
-            btn.textContent = 'Simulate Recovery';
+            enableAllSimBtns();
           }, 3500);
         } else {
           showToast('Simulation Failed', data.error || 'Server returned an error.', 'error');
-          btn.disabled = false;
-          document.getElementById('btn-simulate-fail').disabled = false;
-          btn.textContent = 'Simulate Recovery';
+          enableAllSimBtns();
         }
       } catch (err) {
         showToast('Error', err.message, 'error');
-        btn.disabled = false;
-        document.getElementById('btn-simulate-fail').disabled = false;
-        btn.textContent = 'Simulate Recovery';
+        enableAllSimBtns();
+      }
+    }
+
+    async function simulateLargeDeficit() {
+      var btn = document.getElementById('btn-simulate-large');
+      disableAllSimBtns();
+      btn.textContent = 'Triggering...';
+      try {
+        var res = await fetch('api/simulate-large', { method: 'POST' });
+        var data = await res.json();
+        if (data.ok) {
+          showToast(
+            'Undercollateralized!',
+            'Reserve ratio dropped to ' + data.data.ratio + '%. Routing to confidential dark pool...',
+            'error'
+          );
+          poll();
+          btn.textContent = 'Dark pool matching...';
+          setTimeout(function() {
+            showToast(
+              'Dark Pool Recovery Complete',
+              'Confidential order filled via TEE matching engine. Settled on-chain with ZK proof.',
+              'success'
+            );
+            poll();
+            enableAllSimBtns();
+          }, 4500);
+        } else {
+          showToast('Simulation Failed', data.error || 'Server returned an error.', 'error');
+          enableAllSimBtns();
+        }
+      } catch (err) {
+        showToast('Error', err.message, 'error');
+        enableAllSimBtns();
       }
     }
 
     async function simulateFailure() {
       var btn = document.getElementById('btn-simulate-fail');
-      btn.disabled = true;
-      document.getElementById('btn-simulate').disabled = true;
+      disableAllSimBtns();
       btn.textContent = 'Triggering...';
       try {
         var res = await fetch('api/simulate-failure', { method: 'POST' });
         var data = await res.json();
         if (data.ok) {
           showToast(
-            'Recovery Failed!',
-            'Agent could not restore solvency. Failed at: ' + data.data.failedStep,
+            'Dark Pool Recovery Failed!',
+            'TEE matching engine timed out. Failed at: ' + data.data.failedStep,
             'error'
           );
           poll();
@@ -1260,9 +1342,7 @@
       } catch (err) {
         showToast('Error', err.message, 'error');
       } finally {
-        btn.disabled = false;
-        document.getElementById('btn-simulate').disabled = false;
-        btn.textContent = 'Simulate Failed Recovery';
+        enableAllSimBtns();
       }
     }
 
@@ -1527,6 +1607,24 @@
       // Recovery Strategies (with human-friendly labels)
       if (recoveries && recoveries.length > 0) {
         const latest = recoveries[recoveries.length - 1];
+        const mech = latest.mechanism || 'direct';
+
+        // Update strategy label
+        var strategyEl = document.getElementById('strategy-label');
+        if (mech === 'darkpool') {
+          strategyEl.textContent = '4-Step Dark Pool Recovery';
+        } else {
+          strategyEl.textContent = '3-Step Direct Wallet Recovery';
+        }
+
+        // Mechanism badge
+        var mechBadgeHtml = '';
+        if (mech === 'darkpool') {
+          mechBadgeHtml = '<div class="mechanism-badge darkpool">Confidential Dark Pool</div>';
+        } else {
+          mechBadgeHtml = '<div class="mechanism-badge direct">Direct Wallet Swap</div>';
+        }
+
         const stepsHtml = latest.steps.map(function(s) {
           var dataHtml = '';
           if (s.data) {
@@ -1534,6 +1632,14 @@
             if (s.data.balance) details.push(s.data.balance);
             if (s.data.amount) details.push(s.data.amount);
             if (s.data.tx) details.push('tx: ' + s.data.tx);
+            if (s.data.algorithm) details.push('Encryption: ' + s.data.algorithm);
+            if (s.data.orderId) details.push('Order: ' + s.data.orderId);
+            if (s.data.venue) details.push(s.data.venue);
+            if (s.data.fillPrice) details.push('Fill: ' + s.data.fillPrice);
+            if (s.data.matchedCounterparties) details.push(s.data.matchedCounterparties + ' counterparties');
+            if (s.data.zkProof) details.push('ZK proof: ' + s.data.zkProof);
+            if (s.data.settlementTx) details.push('tx: ' + s.data.settlementTx);
+            if (s.data.gasUsed) details.push('Gas: ' + s.data.gasUsed);
             if (s.data.error) details.push(s.data.error);
             if (details.length > 0) {
               dataHtml = '<div class="step-data">' + details.join(' | ') + '</div>';
@@ -1557,17 +1663,33 @@
         if (latest.summary) {
           var s = latest.summary;
           var amountStr = formatReserveNumber(s.recoveryAmount) + ' stETH';
-          if (latest.success) {
+          var sMech = s.mechanism || 'direct';
+
+          if (latest.success && sMech === 'darkpool') {
             summaryHtml = '<div class="recovery-summary recovery-summary-success">' +
-              'Agent swapped USDC &rarr; stETH on Uniswap and committed <strong>' + amountStr + '</strong> back into the ' +
-              (s.feedDescription || 'reserve') + ' fund to restore <strong>' + s.toRatio + '% collateralization</strong> ' +
+              'Agent submitted <strong>' + amountStr + '</strong> confidential order to the Chainlink Dark Pool. ' +
+              'Order filled by TEE matching engine across 3 counterparties at TWAP &plusmn; 0.05%. ' +
+              'Settled on-chain with ZK proof to restore <strong>' + s.toRatio + '% collateralization</strong> ' +
               '(from ' + s.fromRatio + '% &rarr; ' + s.toRatio + '%).' +
+            '</div>';
+          } else if (latest.success) {
+            summaryHtml = '<div class="recovery-summary recovery-summary-success">' +
+              'Agent swapped $' + formatNumber(s.recoveryAmountUsd || 50000000) + ' USDC &rarr; <strong>' + amountStr + '</strong> ' +
+              'via direct Uniswap swap and committed it back into the ' +
+              (s.feedDescription || 'reserve') + ' fund to restore solvency ' +
+              '(from ' + s.fromRatio + '% &rarr; ' + s.toRatio + '%).' +
+            '</div>';
+          } else if (sMech === 'darkpool') {
+            summaryHtml = '<div class="recovery-summary recovery-summary-failure">' +
+              'Agent attempted to fill <strong>' + amountStr + '</strong> via the Chainlink Confidential Dark Pool, ' +
+              'but the TEE matching engine timed out &mdash; insufficient dark pool liquidity. ' +
+              'Reserve remains at <strong>' + s.fromRatio + '% collateralization</strong>. Manual intervention required.' +
             '</div>';
           } else {
             summaryHtml = '<div class="recovery-summary recovery-summary-failure">' +
-              'Recovery needed <strong>' + amountStr + '</strong> (via USDC &rarr; stETH Uniswap swap) to restore ' +
+              'Recovery needed <strong>' + amountStr + '</strong> (via USDC &rarr; stETH swap) to restore ' +
               (s.feedDescription || 'reserve') + ' fund to <strong>' + s.toRatio + '% collateralization</strong> ' +
-              '(from ' + s.fromRatio + '%) but the swap failed due to insufficient pool liquidity.' +
+              '(from ' + s.fromRatio + '%) but the swap failed.' +
             '</div>';
           }
         }
@@ -1581,6 +1703,7 @@
               '</span>' +
             '</div>' +
           '</div>' +
+          mechBadgeHtml +
           summaryHtml +
           stepsHtml;
       }
