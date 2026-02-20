@@ -486,9 +486,9 @@ app.post('/api/simulate', async (_req, res) => {
     const liabilities = realReserve * EXPECTED_RESERVES_MULTIPLIER
     // Drop reserve to 99.95% of liabilities (small shortfall)
     const droppedReserve = liabilities * 0.9995
-    // Recovery target: restore to 100% solvency
-    const targetReserve = liabilities
-    const recoveryAmount = targetReserve - droppedReserve // = liabilities * 0.01
+    // Recovery target: restore to 105% optimal collateralization
+    const targetReserve = liabilities * 1.05
+    const recoveryAmount = targetReserve - droppedReserve
     const recoveryAmountUsd = Math.round(recoveryAmount * WBTC_USD_PRICE)
 
     overrideReserves = {
@@ -509,7 +509,7 @@ app.post('/api/simulate', async (_req, res) => {
       blockNumber: events.length + 1,
     })
 
-    const ratio = Number(((droppedReserve / liabilities) * 100).toFixed(1))
+    const ratio = Math.floor((droppedReserve / liabilities) * 1000) / 10
 
     // Log agent activity
     agentActivity.push({
@@ -561,7 +561,7 @@ app.post('/api/simulate', async (_req, res) => {
             recoveryAmount,
             recoveryAmountUsd,
             fromRatio: 99.9,
-            toRatio: 100,
+            toRatio: 105,
             feedDescription: feedDesc,
             mechanism: 'direct',
           },
@@ -577,7 +577,7 @@ app.post('/api/simulate', async (_req, res) => {
         agentActivity.push({
           action: 'recovery',
           timestamp: Math.floor(recoveryTime / 1000),
-          details: `Direct wallet swap complete. Recovered ${fmtRecovery} wBTC (${fmtUsd}) via Uniswap.`,
+          details: `Direct wallet swap complete. Recovered ${fmtRecovery} wBTC (${fmtUsd}) via Uniswap. Reserve restored to 105%.`,
         })
 
         if (!agentMetrics) {
@@ -754,12 +754,12 @@ app.post('/api/simulate-failure', async (_req, res) => {
       totalReserve: droppedReserve,
       totalLiabilities: liabilities,
       isSolvent: false,
-      expiresAt: now + 15_000,
+      expiresAt: now + 600_000, // Persist until manually reset
     }
 
     overrideAttestation = {
       isSolvent: false,
-      expiresAt: now + 15_000,
+      expiresAt: now + 600_000,
     }
 
     events.push({
@@ -851,6 +851,13 @@ app.post('/api/simulate-failure', async (_req, res) => {
     console.error('[simulate-failure] Error:', err)
     res.status(500).json({ error: 'Failed to simulate recovery failure' })
   }
+})
+
+// POST /api/reset — clear simulation overrides and restore normal state
+app.post('/api/reset', (_req, res) => {
+  overrideReserves = null
+  overrideAttestation = null
+  res.json({ ok: true })
 })
 
 // POST /api/toggle-reserves — proxy to mock API toggle endpoint

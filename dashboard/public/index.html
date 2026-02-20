@@ -1395,6 +1395,7 @@
       <button id="btn-simulate" class="btn btn-primary" onclick="simulateRecovery()">Small Deficit &mdash; Direct Swap</button>
       <button id="btn-simulate-large" class="btn btn-darkpool" onclick="simulateLargeDeficit()">Large Deficit &mdash; Dark Pool</button>
       <button id="btn-simulate-fail" class="btn btn-danger-outline" onclick="simulateFailure()">Dark Pool Failure</button>
+      <button class="btn" onclick="resetSimulation()" style="margin-left: 8px; opacity: 0.7;">Reset</button>
     </div>
   </div>
 
@@ -1954,6 +1955,16 @@
         showToast('Error', err.message, 'error');
       } finally {
         setTimeout(function() { enableAllSimBtns(); }, 4000);
+      }
+    }
+
+    async function resetSimulation() {
+      try {
+        await fetch('api/reset', { method: 'POST' });
+        showToast('Reset', 'Simulation state cleared.', 'info');
+        poll();
+      } catch (err) {
+        showToast('Error', err.message, 'error');
       }
     }
 
