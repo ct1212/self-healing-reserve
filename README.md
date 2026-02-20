@@ -30,7 +30,7 @@ Reserve API ──▶ CRE Workflow (inside TEE) ──▶ On-chain: isSolvent = 
                     │ the enclave                             │ this event
                     │                                         ▼
                     │                              Recovery Agent
-                    │                              (Coinbase agentic wallet)
+                    │                              (autonomous wallet)
                     │                                         │
                     ▼                                         ▼
               Only a boolean                     Selects recovery mechanism
@@ -54,7 +54,7 @@ The agent intelligently selects the optimal recovery method based on deficit siz
 
 | Mechanism | When | How | Visibility |
 |-----------|------|-----|------------|
-| **Direct Wallet Swap** | Small deficits (<$50M) | Coinbase wallet swaps USDC → wBTC on Uniswap | Public on-chain txs |
+| **Direct Wallet Swap** | Small deficits (<$50M) | Agent swaps USDC → wBTC on Uniswap | Public on-chain txs |
 | **Confidential Dark Pool** | Large deficits (>$50M) | TEE-matched OTC fills via CREDarkPool.sol | Only boolean result public |
 
 ### Why two mechanisms?
@@ -88,7 +88,7 @@ The **[live demo dashboard](http://76.13.177.213/cre/)** uses real **Chainlink w
 
 Three simulation scenarios demonstrate the system end-to-end:
 
-- **Small Deficit → Direct Swap**: Reserve drops to 99.9%. Agent swaps via Coinbase wallet, restores to 100%. Remaining 5% buffer replenished via scheduled OTC.
+- **Small Deficit → Direct Swap**: Reserve drops to 99.9%. Agent swaps USDC → wBTC via Uniswap, restores to 100%. Remaining 5% buffer replenished via scheduled OTC.
 - **Large Deficit → Dark Pool**: Reserve drops to 95%. Agent routes through confidential dark pool — TEE encrypts, matches, and settles with ZK proof. Restored to 105%.
 - **Dark Pool Failure**: TEE matching times out. System stays undercollateralized until manual intervention — demonstrates graceful failure handling.
 
@@ -125,7 +125,7 @@ Monitors `ReserveStatusUpdated` events and selects recovery mechanism:
 - **Small deficits**: Check wallet balance → Swap USDC → wBTC on Uniswap → Send to reserve
 - **Large deficits**: Encrypt order → Submit to dark pool → TEE matching → ZK settlement
 
-Uses **Coinbase agentic wallet** (`awal` CLI) — MPC wallet with no raw private keys. Dry-run mode by default.
+Uses an MPC wallet (no raw private keys exposed to the agent). Dry-run mode by default.
 
 ## Security
 
@@ -135,7 +135,7 @@ See [SECURITY.md](./SECURITY.md) for the full security architecture, including w
 
 - **Chainlink CRE** — Confidential Compute Runtime (TEE-based verification)
 - **Chainlink Proof of Reserve** — live wBTC PoR feed on Ethereum mainnet
-- **Coinbase agentic wallet** — autonomous MPC wallet via `awal` CLI
+- **MPC wallet** — autonomous agent wallet (no raw private keys)
 - **Solidity 0.8.19** — ReserveAttestation + CREDarkPool contracts
 - **TypeScript + viem** — all runtime code, Ethereum client
 - **Express** — dashboard backend + mock API
