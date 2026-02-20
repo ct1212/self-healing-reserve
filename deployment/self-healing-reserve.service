@@ -5,12 +5,12 @@ After=network.target
 [Service]
 Type=simple
 User=agent
-WorkingDirectory=/home/agent/projects/self-healing-reserve/dashboard
+WorkingDirectory=/home/agent/projects/hackathon/self-healing-reserve
 Environment=NODE_ENV=production
 Environment=BIND_HOST=127.0.0.1
 Environment=DASHBOARD_PORT=3002
 Environment=PUBLIC_URL=76.13.177.213
-ExecStart=/usr/bin/npm run start
+ExecStart=/usr/bin/npx tsx dashboard/server.ts
 Restart=always
 RestartSec=3
 StandardOutput=journal

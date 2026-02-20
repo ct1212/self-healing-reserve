@@ -22,7 +22,7 @@ fi
 ACTUAL_USER=${SUDO_USER:-$USER}
 
 echo -e "${GREEN}Step 1: Installing Nginx configuration${NC}"
-cp /home/agent/projects/self-healing-reserve/deployment/nginx-cre.conf /etc/nginx/snippets/cre.conf
+cp /home/agent/projects/hackathon/self-healing-reserve/deployment/nginx-cre.conf /etc/nginx/snippets/cre.conf
 echo "✓ Copied nginx-cre.conf to /etc/nginx/snippets/"
 
 echo ""
@@ -31,7 +31,7 @@ nginx -t
 
 echo ""
 echo -e "${GREEN}Step 3: Installing systemd service${NC}"
-cp /home/agent/projects/self-healing-reserve/deployment/self-healing-reserve.service /etc/systemd/system/
+cp /home/agent/projects/hackathon/self-healing-reserve/deployment/self-healing-reserve.service /etc/systemd/system/
 systemctl daemon-reload
 echo "✓ Installed self-healing-reserve.service"
 

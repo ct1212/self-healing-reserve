@@ -54,7 +54,7 @@ export class HealthMonitor {
   constructor(apiUrl: string, rpcUrl: string, chainlinkFeedAddress?: string, chainlinkRpc?: string) {
     this.apiUrl = apiUrl;
     this.rpcUrl = rpcUrl;
-    this.chainlinkFeedAddress = (chainlinkFeedAddress || '0xAd410E655C0fE4741F573152592eeb766e686CE7') as `0x${string}`;
+    this.chainlinkFeedAddress = (chainlinkFeedAddress || '0xa81FE04086865e63E12dD3776978E49DEEa2ea4e') as `0x${string}`;
     this.chainlinkRpc = chainlinkRpc || 'https://ethereum-rpc.publicnode.com';
 
     this.client = createPublicClient({

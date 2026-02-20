@@ -1,6 +1,6 @@
 # Self-Healing Reserve
 
-Autonomous proof-of-reserve system combining **Chainlink CRE confidential compute** with **Coinbase agentic wallets**. A CRE workflow privately verifies reserves inside a TEE, publishes only a boolean attestation on-chain, and when reserves are undercollateralized, a recovery agent autonomously rebalances via the awal wallet CLI. Live reserve data is sourced from the **Chainlink stETH Proof of Reserve** feed on Ethereum mainnet.
+Autonomous proof-of-reserve system combining **Chainlink CRE confidential compute** with **Coinbase agentic wallets**. A CRE workflow privately verifies reserves inside a TEE, publishes only a boolean attestation on-chain, and when reserves are undercollateralized, a recovery agent autonomously rebalances via the awal wallet CLI. Live reserve data is sourced from the **Chainlink wBTC Proof of Reserve** feed on Ethereum mainnet.
 
 Built for **Chainlink Convergence Hackathon 2026**.
 
@@ -22,8 +22,8 @@ Built for **Chainlink Convergence Hackathon 2026**.
                                                   │   Recovery Agent        │
                                                   │   watches events        │
                                                   │   ┌─ check USDC balance │
-                                                  │   ├─ swap USDC → stETH  │
-                                                  │   └─ send stETH to PoR  │
+                                                  │   ├─ swap USDC → wBTC   │
+                                                  │   └─ send wBTC to PoR   │
                                                   └──────────┬──────────────┘
                                                              │ CLI
                                                              ▼
@@ -173,12 +173,12 @@ deployment/
 
 A live web dashboard provides real-time visibility into the system. **[View the live demo](http://76.13.177.213/cre/)**.
 
-- **Chainlink PoR data**: live stETH Proof of Reserve from Ethereum mainnet (feed address, round ID, last updated)
+- **Chainlink PoR data**: live wBTC Proof of Reserve from Ethereum mainnet (feed address, round ID, last updated)
 - **Attestation status**: large green/red indicator showing current solvency
 - **Reserve data**: total reserves, liabilities, and collateralization ratio sourced from Chainlink
 - **Simulate recovery**: two scenarios using real Chainlink data:
-  - *Small deficit*: agent computes the stETH shortfall, swaps USDC via direct Uniswap swap (3 steps)
-  - *Large deficit*: agent routes ~900K stETH through a confidential dark pool with TEE matching and ZK settlement (4 steps)
+  - *Small deficit*: agent computes the wBTC shortfall, swaps USDC via direct Uniswap swap (3 steps)
+  - *Large deficit*: agent routes wBTC through a confidential dark pool with TEE matching and ZK settlement (4 steps)
   - *Failed recovery*: dark pool TEE matching times out, demonstrating failure handling
 - **Recovery history**: step-by-step breakdown with mechanism badges (Direct Wallet Swap / Confidential Dark Pool)
 - **Health monitoring**: Chainlink feed freshness, blockchain connectivity, API status
@@ -252,10 +252,10 @@ For the demo, `demo/simulate-workflow.ts` replicates this logic locally.
 When `ReserveStatusUpdated(false, ...)` is detected, the agent intelligently selects the recovery mechanism based on deficit size:
 
 ### Small Deficits (<$50M): Direct Wallet Swap
-Fast, simple recovery via Coinbase agentic wallet. The agent swaps USDC into stETH and sends it directly to the reserve:
+Fast, simple recovery via Coinbase agentic wallet. The agent swaps USDC into wBTC and sends it directly to the reserve:
 1. **Check USDC balance**: verify wallet has funds available
-2. **Swap USDC → stETH**: Uniswap DEX swap at current market rate
-3. **Send stETH to PoR reserve**: transfer stETH back into the reserve fund
+2. **Swap USDC → wBTC**: Uniswap DEX swap at current market rate
+3. **Send wBTC to PoR reserve**: transfer wBTC back into the reserve fund
 
 ### Large Deficits (>$50M): Confidential Dark Pool
 For deficits too large for a direct swap without market impact, the agent routes through a confidential dark pool:
@@ -273,8 +273,8 @@ In dry-run mode (default), commands are logged but not executed.
 | `RPC_URL` | `http://127.0.0.1:8545` | Ethereum JSON-RPC endpoint |
 | `MOCK_API_URL` | `http://127.0.0.1:3001` | Mock reserve API |
 | `CONTRACT_ADDRESS` | *(none)* | Deployed ReserveAttestation contract address |
-| `RESERVE_ADDRESS` | `0x000...000` | Where recovery stETH is sent |
-| `CHAINLINK_FEED_ADDRESS` | `0xAd41...CE7` | Chainlink stETH PoR feed (Ethereum mainnet) |
+| `RESERVE_ADDRESS` | `0x000...000` | Where recovery wBTC is sent |
+| `CHAINLINK_FEED_ADDRESS` | `0xa81F...4e` | Chainlink wBTC PoR feed (Ethereum mainnet) |
 | `DASHBOARD_PORT` | `3002` | Dashboard server port |
 | `AWAL_DRY_RUN` | `true` | Set `false` to execute real wallet transactions |
 
@@ -283,7 +283,7 @@ In dry-run mode (default), commands are logged but not executed.
 - **Solidity 0.8.19** + solc: smart contracts
 - **TypeScript** + tsx: all runtime code
 - **viem**: Ethereum client (deploy, write, watch events, read Chainlink feeds)
-- **Chainlink Proof of Reserve**: live stETH PoR feed on Ethereum mainnet
+- **Chainlink Proof of Reserve**: live wBTC PoR feed on Ethereum mainnet
 - **@chainlink/cre-sdk**: CRE workflow (confidential compute runtime)
 - **Express**: dashboard backend + mock reserve API
 - **Hardhat**: local EVM node for demo
