@@ -1002,6 +1002,23 @@
       color: #22c55e;
     }
 
+    .dp-live-panel.direct-swap {
+      border-color: #3b82f6;
+    }
+
+    .dp-live-panel.direct-swap::before {
+      background: linear-gradient(90deg, #3b82f6, #22c55e, #3b82f6);
+      background-size: 200% 100%;
+    }
+
+    .dp-live-panel.direct-swap .dp-live-title {
+      color: #3b82f6;
+    }
+
+    .dp-live-panel.direct-swap .dp-live-steps {
+      grid-template-columns: 1fr 1fr 1fr;
+    }
+
     .dp-live-data-reveal {
       margin-top: 16px;
       padding: 12px 16px;
@@ -1111,6 +1128,10 @@
       }
 
       .dp-live-steps {
+        grid-template-columns: 1fr;
+      }
+
+      .dp-live-panel.direct-swap .dp-live-steps {
         grid-template-columns: 1fr;
       }
 
@@ -1321,6 +1342,60 @@
   </div>
 
   <!-- Live Dark Pool Execution Panel (shown during simulation) -->
+  <div class="dp-live-panel direct-swap" id="ds-live-panel">
+    <div class="dp-live-header">
+      <span class="dp-live-title">Direct Wallet Recovery</span>
+      <span class="dp-live-status" id="ds-live-status">Initializing</span>
+    </div>
+
+    <div class="dp-live-steps">
+      <div class="dp-live-step waiting" id="ds-step-1">
+        <span class="privacy-tag" style="background:rgba(59,130,246,0.15);color:#3b82f6;">Coinbase</span>
+        <div class="dp-live-step-num">Step 1</div>
+        <div class="dp-live-step-icon">&#128179;</div>
+        <div class="dp-live-step-name">Check Balance</div>
+        <div class="dp-live-step-detail" id="ds-step-1-detail">Waiting...</div>
+        <div class="dp-live-step-time" id="ds-step-1-time"></div>
+      </div>
+      <div class="dp-live-step waiting" id="ds-step-2">
+        <span class="privacy-tag" style="background:rgba(234,179,8,0.15);color:#eab308;">On-Chain</span>
+        <div class="dp-live-step-num">Step 2</div>
+        <div class="dp-live-step-icon">&#128260;</div>
+        <div class="dp-live-step-name">Swap</div>
+        <div class="dp-live-step-detail" id="ds-step-2-detail">Waiting...</div>
+        <div class="dp-live-step-time" id="ds-step-2-time"></div>
+      </div>
+      <div class="dp-live-step waiting" id="ds-step-3">
+        <span class="privacy-tag" style="background:rgba(34,197,94,0.15);color:#22c55e;">Transfer</span>
+        <div class="dp-live-step-num">Step 3</div>
+        <div class="dp-live-step-icon">&#9989;</div>
+        <div class="dp-live-step-name">Send to Reserve</div>
+        <div class="dp-live-step-detail" id="ds-step-3-detail">Waiting...</div>
+        <div class="dp-live-step-time" id="ds-step-3-time"></div>
+      </div>
+    </div>
+
+    <div class="dp-live-data-reveal" id="ds-data-reveal" style="display:none;">
+      <h4>Transaction Report</h4>
+      <div class="data-row">
+        <span class="data-label">Wallet Balance</span>
+        <span class="data-value" id="ds-data-balance" style="color:#555;">Checking...</span>
+      </div>
+      <div class="data-row">
+        <span class="data-label">Swap Route</span>
+        <span class="data-value" id="ds-data-route" style="color:#555;">Pending...</span>
+      </div>
+      <div class="data-row">
+        <span class="data-label">Amount Recovered</span>
+        <span class="data-value" id="ds-data-amount" style="color:#555;">Pending...</span>
+      </div>
+      <div class="data-row">
+        <span class="data-label">On-Chain Visibility</span>
+        <span class="data-value" id="ds-data-visibility" style="color:#eab308;">All transactions public</span>
+      </div>
+    </div>
+  </div>
+
   <div class="dp-live-panel" id="dp-live-panel">
     <div class="dp-live-header">
       <span class="dp-live-title">Dark Pool Execution</span>
@@ -1751,17 +1826,8 @@
             'Reserve ratio dropped to ' + data.data.ratio + '%. Agent swapping via wallet...',
             'error'
           );
+          animateDirectSwap(data.data);
           poll();
-          btn.textContent = 'Swapping on Uniswap...';
-          setTimeout(function() {
-            showToast(
-              'Direct Swap Recovery Complete',
-              'Agent restored solvency via public Uniswap swap (USDC \u2192 wBTC). Note: transaction visible on-chain.',
-              'success'
-            );
-            poll();
-            enableAllSimBtns();
-          }, 3500);
         } else {
           showToast('Simulation Failed', data.error || 'Server returned an error.', 'error');
           enableAllSimBtns();
@@ -1772,8 +1838,102 @@
       }
     }
 
+    // Direct Swap Live Execution Panel
+    function showDSPanel() {
+      // Hide dark pool panel if visible
+      document.getElementById('dp-live-panel').classList.remove('visible');
+      var panel = document.getElementById('ds-live-panel');
+      panel.classList.add('visible');
+      for (var i = 1; i <= 3; i++) {
+        var step = document.getElementById('ds-step-' + i);
+        step.className = 'dp-live-step waiting';
+        document.getElementById('ds-step-' + i + '-detail').textContent = 'Waiting...';
+        document.getElementById('ds-step-' + i + '-time').textContent = '';
+      }
+      var status = document.getElementById('ds-live-status');
+      status.textContent = 'Executing';
+      status.className = 'dp-live-status running';
+      var reveal = document.getElementById('ds-data-reveal');
+      reveal.style.display = '';
+      document.getElementById('ds-data-balance').textContent = 'Checking...';
+      document.getElementById('ds-data-balance').style.color = '#555';
+      document.getElementById('ds-data-route').textContent = 'Pending...';
+      document.getElementById('ds-data-route').style.color = '#555';
+      document.getElementById('ds-data-amount').textContent = 'Pending...';
+      document.getElementById('ds-data-amount').style.color = '#555';
+      document.getElementById('ds-data-visibility').textContent = 'All transactions public';
+      document.getElementById('ds-data-visibility').style.color = '#eab308';
+      panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    function setDSStep(stepNum, state, detail, timeMs) {
+      var step = document.getElementById('ds-step-' + stepNum);
+      step.className = 'dp-live-step ' + state;
+      if (detail) document.getElementById('ds-step-' + stepNum + '-detail').textContent = detail;
+      if (timeMs !== undefined) document.getElementById('ds-step-' + stepNum + '-time').textContent = timeMs + 'ms';
+    }
+
+    function setDSStatus(text, cls) {
+      var status = document.getElementById('ds-live-status');
+      status.textContent = text;
+      status.className = 'dp-live-status ' + cls;
+    }
+
+    function animateDirectSwap(recoveryData) {
+      showDSPanel();
+      var amount = recoveryData ? Math.round(recoveryData.recoveryAmount).toLocaleString() + ' wBTC' : '??? wBTC';
+      var usdAmount = recoveryData ? '$' + Math.round(recoveryData.recoveryAmount * 67000).toLocaleString() : '$???';
+
+      // Step 1: Check Balance (0ms - 500ms)
+      setTimeout(function() {
+        setDSStep(1, 'active', 'Querying Coinbase agentic wallet USDC balance...', null);
+      }, 100);
+      setTimeout(function() {
+        setDSStep(1, 'done', 'Wallet has ' + usdAmount + ' USDC available for recovery.', 50);
+        document.getElementById('ds-data-balance').textContent = usdAmount + ' USDC available';
+        document.getElementById('ds-data-balance').style.color = '#22c55e';
+      }, 600);
+
+      // Step 2: Swap on Uniswap (600ms - 1800ms)
+      setTimeout(function() {
+        setDSStep(2, 'active', 'Submitting swap on Uniswap: USDC \u2192 wBTC at market rate...', null);
+      }, 700);
+      setTimeout(function() {
+        setDSStep(2, 'active', 'Swap executing... waiting for block confirmation...', null);
+      }, 1200);
+      setTimeout(function() {
+        setDSStep(2, 'done', 'Swapped ' + usdAmount + ' USDC \u2192 ' + amount + ' on Uniswap V3.', 150);
+        document.getElementById('ds-data-route').textContent = 'Uniswap V3: USDC \u2192 wBTC';
+        document.getElementById('ds-data-route').style.color = '#22c55e';
+      }, 1800);
+
+      // Step 3: Send to Reserve (1800ms - 2800ms)
+      setTimeout(function() {
+        setDSStep(3, 'active', 'Transferring ' + amount + ' to reserve address...', null);
+      }, 1900);
+      setTimeout(function() {
+        var txHash = '0x' + Math.random().toString(16).slice(2, 10) + '...';
+        setDSStep(3, 'done', 'Sent ' + amount + ' to reserve. Tx: ' + txHash, 100);
+        setDSStatus('Complete', 'complete');
+        document.getElementById('ds-data-amount').textContent = amount + ' recovered (' + usdAmount + ')';
+        document.getElementById('ds-data-amount').style.color = '#22c55e';
+        document.getElementById('ds-data-visibility').textContent = 'Swap + transfer visible on Etherscan';
+        document.getElementById('ds-data-visibility').style.color = '#eab308';
+
+        showToast(
+          'Direct Swap Recovery Complete',
+          'Reserve restored to 105% via Uniswap. All transactions visible on-chain.',
+          'success'
+        );
+        poll();
+        enableAllSimBtns();
+      }, 2800);
+    }
+
     // Dark Pool Live Execution Panel
     function showDPPanel() {
+      // Hide direct swap panel if visible
+      document.getElementById('ds-live-panel').classList.remove('visible');
       var panel = document.getElementById('dp-live-panel');
       panel.classList.add('visible');
       // Reset all steps
