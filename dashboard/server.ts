@@ -7,7 +7,6 @@ import { hardhat, mainnet } from 'viem/chains'
 import { ReserveAttestation } from '../contracts/abi/ReserveAttestation'
 import { ChainlinkAggregator } from '../contracts/abi/ChainlinkAggregator'
 import { deployContract } from '../demo/deploy-contract'
-import { HealthMonitor } from './health'
 import { AlertManager } from './alerts'
 
 const app = express()
@@ -104,8 +103,7 @@ let overrideAttestation: {
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 app.use(express.static(path.join(__dirname, 'public')))
 
-// Initialize health monitor and alerts
-const healthMonitor = new HealthMonitor(API_URL, RPC_URL, CHAINLINK_FEED_ADDRESS, CHAINLINK_RPC)
+// Initialize alerts
 const alertManager = new AlertManager()
 
 // In-memory event log
@@ -135,10 +133,6 @@ const recoveryHistory: Array<{
 
 // Ratio history for chart (capped at 200)
 const ratioHistory: Array<{ timestamp: number; ratio: number }> = []
-
-// Track last agent report time for health monitoring
-let lastAgentReportTime: number | null = null
-let agentDownAlertSent = false
 
 // GET /api/status — aggregated dashboard data
 app.get('/api/status', async (_req, res) => {
@@ -256,7 +250,6 @@ app.get('/api/status', async (_req, res) => {
         metrics: agentMetrics,
       },
       recoveries: recoveryHistory.slice(-10),
-      health: healthMonitor.getHealth(),
       alerts: {
         config: alertManager.getConfig(),
         recent: alertManager.getHistory(10),
@@ -286,12 +279,6 @@ app.post('/api/agent-activity', async (req, res) => {
     // Update metrics
     if (metrics) {
       agentMetrics = metrics
-
-      // Record agent report for health monitoring
-      const agentStartTime = Date.now() - (metrics.uptimeSeconds * 1000)
-      healthMonitor.recordAgentReport(agentStartTime)
-      lastAgentReportTime = Date.now()
-      agentDownAlertSent = false
     }
 
     // Track recovery history
@@ -324,15 +311,6 @@ app.post('/api/agent-activity', async (req, res) => {
     console.error('[dashboard] Error processing agent activity:', err)
     res.status(500).json({ error: 'Failed to process agent activity' })
   }
-})
-
-// GET /api/health — health check endpoint
-app.get('/api/health', (_req, res) => {
-  const isHealthy = healthMonitor.isHealthy()
-  res.status(isHealthy ? 200 : 503).json({
-    healthy: isHealthy,
-    status: healthMonitor.getHealth(),
-  })
 })
 
 // GET /api/recoveries — recovery history with pagination
@@ -485,7 +463,7 @@ app.get('/api/alerts/config', (_req, res) => {
 app.post('/api/alerts/test', async (_req, res) => {
   try {
     await alertManager.sendAlert(
-      'HEALTH_CHECK_FAILURE',
+      'RECOVERY_FAILURE',
       'This is a test alert from the Self-Healing Reserve dashboard',
       { test: true, timestamp: Date.now() }
     )
@@ -614,7 +592,6 @@ app.post('/api/simulate', async (_req, res) => {
         agentMetrics.successfulRecoveries++
         agentMetrics.successRate = (agentMetrics.successfulRecoveries / agentMetrics.totalRecoveries) * 100
         agentMetrics.avgResponseTimeMs = ((agentMetrics.avgResponseTimeMs * (agentMetrics.totalRecoveries - 1)) + 300) / agentMetrics.totalRecoveries
-        healthMonitor.recordAgentReport(recoveryTime - 60000)
       } catch (err) {
         console.error('[simulate] Recovery phase failed:', err)
       }
@@ -748,7 +725,6 @@ app.post('/api/simulate-large', async (_req, res) => {
         agentMetrics.successfulRecoveries++
         agentMetrics.successRate = (agentMetrics.successfulRecoveries / agentMetrics.totalRecoveries) * 100
         agentMetrics.avgResponseTimeMs = ((agentMetrics.avgResponseTimeMs * (agentMetrics.totalRecoveries - 1)) + 2200) / agentMetrics.totalRecoveries
-        healthMonitor.recordAgentReport(recoveryTime - 60000)
       } catch (err) {
         console.error('[simulate-large] Recovery phase failed:', err)
       }
@@ -851,8 +827,6 @@ app.post('/api/simulate-failure', async (_req, res) => {
     if (agentMetrics.recentErrors.length > 10) {
       agentMetrics.recentErrors = agentMetrics.recentErrors.slice(-10)
     }
-
-    healthMonitor.recordAgentReport(now - 60000)
 
     // Log agent activity
     agentActivity.push({
@@ -1083,56 +1057,6 @@ async function pollEvents() {
   }
 }
 
-// Background agent health monitor
-async function monitorAgentHealth() {
-  const AGENT_TIMEOUT = 5 * 60 * 1000 // 5 minutes
-
-  while (true) {
-    await new Promise(resolve => setTimeout(resolve, 30000)) // Check every 30s
-
-    if (lastAgentReportTime) {
-      const timeSinceReport = Date.now() - lastAgentReportTime
-
-      if (timeSinceReport > AGENT_TIMEOUT && !agentDownAlertSent) {
-        await alertManager.sendAlert(
-          'AGENT_DOWN',
-          `Agent has not reported for ${Math.floor(timeSinceReport / 60000)} minutes`,
-          { lastReport: lastAgentReportTime }
-        )
-        agentDownAlertSent = true
-      }
-    }
-  }
-}
-
-// Background health check monitor
-async function monitorSystemHealth() {
-  let lastHealthy = true
-
-  while (true) {
-    await new Promise(resolve => setTimeout(resolve, 30000)) // Check every 30s
-
-    const health = healthMonitor.getHealth()
-    const isHealthy = healthMonitor.isHealthy()
-
-    // Alert on transition from healthy to unhealthy
-    if (lastHealthy && !isHealthy) {
-      const unhealthyComponents = []
-      if (!health.api.healthy) unhealthyComponents.push('API')
-      if (!health.blockchain.healthy) unhealthyComponents.push('Blockchain')
-      if (!health.agent.healthy) unhealthyComponents.push('Agent')
-
-      await alertManager.sendAlert(
-        'HEALTH_CHECK_FAILURE',
-        `System health check failed: ${unhealthyComponents.join(', ')} unhealthy`,
-        { health }
-      )
-    }
-
-    lastHealthy = isHealthy
-  }
-}
-
 const server = app.listen(PORT, BIND_HOST, () => {
   console.log(`[dashboard] Server listening on ${BIND_HOST}:${PORT}`)
   if (BIND_HOST === '127.0.0.1') {
@@ -1142,12 +1066,9 @@ const server = app.listen(PORT, BIND_HOST, () => {
   }
 
   // Start background tasks
-  healthMonitor.start()
   pollEvents()
-  monitorAgentHealth()
-  monitorSystemHealth()
 
-  console.log('[dashboard] Background monitoring started')
+  console.log('[dashboard] Background event polling started')
   console.log(`[dashboard] Chainlink PoR feed: ${CHAINLINK_FEED_ADDRESS}`)
   console.log(`[dashboard] Chainlink RPC: ${CHAINLINK_RPC}`)
   console.log(`[dashboard] Alerts: ${alertManager.getConfig().enabled ? 'enabled' : 'disabled'}`)
@@ -1155,13 +1076,11 @@ const server = app.listen(PORT, BIND_HOST, () => {
 
 process.on('SIGTERM', () => {
   stopAllServices()
-  healthMonitor.stop()
   server.close()
 })
 
 process.on('SIGINT', () => {
   stopAllServices()
-  healthMonitor.stop()
   server.close()
 })
 

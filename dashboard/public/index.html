@@ -384,37 +384,6 @@
 
     .conn-poll-time { color: #555; }
 
-    /* Health indicators */
-    .health-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 16px;
-    }
-
-    .health-item {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 12px;
-      background: #1a1a25;
-      border-radius: 6px;
-    }
-
-    .health-dot {
-      width: 12px;
-      height: 12px;
-      border-radius: 50%;
-      flex-shrink: 0;
-    }
-
-    .health-dot.healthy { background: #22c55e; }
-    .health-dot.unhealthy { background: #ef4444; }
-    .health-dot.warning { background: #eab308; }
-
-    .health-label { font-size: 0.8rem; color: #888; }
-    .health-value { font-size: 0.9rem; color: #e0e0e0; margin-top: 2px; }
-    .health-latency { font-size: 0.75rem; color: #666; }
-
     /* Metrics */
     .metrics-grid {
       display: grid;
@@ -1220,10 +1189,6 @@
         margin: 4px 0;
       }
 
-      .health-grid {
-        grid-template-columns: 1fr;
-      }
-
       .metrics-grid {
         grid-template-columns: 1fr;
       }
@@ -1434,37 +1399,6 @@
   </div>
 
   <div class="grid">
-    <!-- System Health -->
-    <div class="card full-width">
-      <h2>System Health</h2>
-      <div class="health-grid">
-        <div class="health-item">
-          <div class="health-dot" id="health-api-dot"></div>
-          <div>
-            <div class="health-label">Chainlink Feed</div>
-            <div class="health-value" id="health-api-status">---</div>
-            <div class="health-latency" id="health-api-latency"></div>
-          </div>
-        </div>
-        <div class="health-item">
-          <div class="health-dot" id="health-blockchain-dot"></div>
-          <div>
-            <div class="health-label">Blockchain</div>
-            <div class="health-value" id="health-blockchain-status">---</div>
-            <div class="health-latency" id="health-blockchain-latency"></div>
-          </div>
-        </div>
-        <div class="health-item">
-          <div class="health-dot" id="health-agent-dot"></div>
-          <div>
-            <div class="health-label">Agent</div>
-            <div class="health-value" id="health-agent-status">---</div>
-            <div class="health-latency" id="health-agent-uptime"></div>
-          </div>
-        </div>
-      </div>
-    </div>
-
     <!-- Status -->
     <div class="card">
       <h2>Attestation Status</h2>
@@ -1728,14 +1662,6 @@
       if (ms < 1000) return `${ms}ms`;
       if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
       return `${(ms / 60000).toFixed(1)}m`;
-    }
-
-    function formatUptime(seconds) {
-      if (!seconds) return '---';
-      if (seconds < 60) return `${seconds}s`;
-      if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
-      if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`;
-      return `${Math.floor(seconds / 86400)}d ${Math.floor((seconds % 86400) / 3600)}h`;
     }
 
     function formatAgo(ms) {
@@ -2106,7 +2032,7 @@
     }
 
     function update(data) {
-      const { reserves, contract, events, agent, health, recoveries, alerts, ratioHistory } = data;
+      const { reserves, contract, events, agent, recoveries, alerts, ratioHistory } = data;
 
       // Ratio chart
       renderRatioChart(ratioHistory);
@@ -2200,38 +2126,6 @@
             (a.details ? '<div class="activity-details">' + a.details + '</div>' : '') +
           '</div>';
         }).join('');
-      }
-
-      // System Health
-      if (health) {
-        const apiDot = document.getElementById('health-api-dot');
-        const apiStatus = document.getElementById('health-api-status');
-        const apiLatency = document.getElementById('health-api-latency');
-        apiDot.className = 'health-dot ' + (health.api.healthy ? 'healthy' : 'unhealthy');
-        apiStatus.textContent = health.api.healthy ? 'Healthy' : (health.api.error || 'Unhealthy');
-        apiLatency.textContent = health.api.latency ? health.api.latency + 'ms' : '';
-
-        const bcDot = document.getElementById('health-blockchain-dot');
-        const bcStatus = document.getElementById('health-blockchain-status');
-        const bcLatency = document.getElementById('health-blockchain-latency');
-        bcDot.className = 'health-dot ' + (health.blockchain.healthy ? 'healthy' : 'unhealthy');
-        bcStatus.textContent = health.blockchain.healthy
-          ? 'Block #' + (health.blockchain.currentBlock || '?')
-          : (health.blockchain.error || 'Unhealthy');
-        bcLatency.textContent = health.blockchain.latency ? health.blockchain.latency + 'ms' : '';
-
-        const agentDot = document.getElementById('health-agent-dot');
-        const agentStatus = document.getElementById('health-agent-status');
-        const agentUptime = document.getElementById('health-agent-uptime');
-        agentDot.className = 'health-dot ' + (health.agent.healthy ? 'healthy' : 'unhealthy');
-        agentStatus.textContent = health.agent.healthy ? 'Active' : (health.agent.error || 'Inactive');
-        agentUptime.textContent = health.agent.uptime ? 'Uptime: ' + formatUptime(Math.floor(health.agent.uptime / 1000)) : '';
-
-        const connDot = document.getElementById('conn-dot');
-        const connLabel = document.getElementById('conn-label');
-        const allHealthy = health.api.healthy && health.blockchain.healthy && health.agent.healthy;
-        connDot.className = 'conn-dot ' + (allHealthy ? 'ok' : 'err');
-        connLabel.textContent = allHealthy ? 'all systems healthy' : 'degraded';
       }
 
       // Agent Metrics
