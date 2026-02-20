@@ -483,8 +483,8 @@ app.post('/api/simulate', async (_req, res) => {
     const liabilities = realReserve * EXPECTED_RESERVES_MULTIPLIER
     // Drop reserve to 99.95% of liabilities (small shortfall)
     const droppedReserve = liabilities * 0.9995
-    // Recovery target: restore to 105% optimal collateralization
-    const targetReserve = liabilities * 1.05
+    // Recovery target: restore to 100% (direct swap can only close the gap, not over-collateralize)
+    const targetReserve = liabilities
     const recoveryAmount = targetReserve - droppedReserve
     const recoveryAmountUsd = Math.round(recoveryAmount * WBTC_USD_PRICE)
 
@@ -558,7 +558,7 @@ app.post('/api/simulate', async (_req, res) => {
             recoveryAmount,
             recoveryAmountUsd,
             fromRatio: 99.9,
-            toRatio: 105,
+            toRatio: 100,
             feedDescription: feedDesc,
             mechanism: 'direct',
           },
@@ -574,7 +574,7 @@ app.post('/api/simulate', async (_req, res) => {
         agentActivity.push({
           action: 'recovery',
           timestamp: Math.floor(recoveryTime / 1000),
-          details: `Direct wallet swap complete. Recovered ${fmtRecovery} wBTC (${fmtUsd}) via Uniswap. Reserve restored to 105%.`,
+          details: `Direct wallet swap complete. Recovered ${fmtRecovery} wBTC (${fmtUsd}) via Uniswap. Reserve restored to 100%. Remaining 5% buffer replenished via scheduled OTC acquisition.`,
         })
 
         if (!agentMetrics) {

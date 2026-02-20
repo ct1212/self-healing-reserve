@@ -176,7 +176,7 @@ A live web dashboard provides real-time visibility into the system. **[View the 
 - **Attestation status**: large green/red indicator showing current solvency
 - **Reserve data**: total reserves, liabilities, and collateralization ratio sourced from Chainlink
 - **Simulate recovery**: three scenarios using real Chainlink data:
-  - *Small deficit*: agent computes the wBTC shortfall, swaps USDC via direct Uniswap swap, restores to 105% (3 steps)
+  - *Small deficit*: agent computes the wBTC shortfall, swaps USDC via direct Uniswap swap, restores to 100% — remaining 5% buffer replenished via scheduled OTC (3 steps)
   - *Large deficit*: agent routes wBTC through a confidential dark pool with TEE matching and ZK settlement (4 steps)
   - *Failed recovery*: dark pool TEE matching times out — system stays undercollateralized until manual reset
 - **Recovery history**: step-by-step breakdown with mechanism badges (Direct Wallet Swap / Confidential Dark Pool)
