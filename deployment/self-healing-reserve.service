@@ -9,7 +9,8 @@ WorkingDirectory=/home/agent/projects/hackathon/self-healing-reserve
 Environment=NODE_ENV=production
 Environment=BIND_HOST=127.0.0.1
 Environment=DASHBOARD_PORT=3002
-Environment=PUBLIC_URL=76.13.177.213
+# Set PUBLIC_URL to your VPS IP or domain
+# Environment=PUBLIC_URL=your-ip-or-domain
 ExecStart=/usr/bin/npx tsx dashboard/server.ts
 Restart=always
 RestartSec=3

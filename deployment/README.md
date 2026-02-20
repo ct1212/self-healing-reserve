@@ -44,9 +44,8 @@ Internet → Nginx (80/443) → /cre → 127.0.0.1:3002 → Dashboard
 ## Access
 
 After deployment:
-- **Public URL**: http://76.13.177.213/cre
-- **Health Check**: http://76.13.177.213/cre/api/health
-- **Local Test**: curl http://127.0.0.1:3002/api/health
+- **Public URL**: `http://<YOUR_IP_OR_DOMAIN>/cre`
+- **Status Check**: `curl http://127.0.0.1:3002/api/status`
 
 ## Environment
 

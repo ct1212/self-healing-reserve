@@ -58,7 +58,7 @@ Create or edit `/etc/nginx/sites-available/main`:
 server {
     listen 80;
     listen [::]:80;
-    server_name 76.13.177.213;  # Or your domain
+    server_name _;  # Replace with your domain or IP
 
     # Self-Healing Reserve Dashboard
     include /etc/nginx/snippets/cre.conf;
@@ -103,19 +103,19 @@ sudo journalctl -u self-healing-reserve -f
 Test localhost:
 
 ```bash
-curl http://127.0.0.1:3002/api/health
+curl http://127.0.0.1:3002/api/status
 ```
 
 Test via Nginx:
 
 ```bash
-curl http://76.13.177.213/cre/api/health
+curl http://<YOUR_IP_OR_DOMAIN>/cre/api/status
 ```
 
 Access in browser:
 
 ```
-http://76.13.177.213/cre
+http://<YOUR_IP_OR_DOMAIN>/cre
 ```
 
 ## Configuration
@@ -132,7 +132,7 @@ Environment variables are configured in the systemd service file. To change:
 # Required
 BIND_HOST=127.0.0.1          # Localhost only
 DASHBOARD_PORT=3002          # Internal port
-PUBLIC_URL=76.13.177.213     # Your VPS IP or domain
+PUBLIC_URL=your-ip-or-domain  # Your VPS IP or domain
 
 # Optional
 RPC_URL=http://127.0.0.1:8545
@@ -228,8 +228,7 @@ sudo ufw status
 sudo systemctl status nginx
 
 # Check if service is accessible locally
-curl -v http://127.0.0.1:3002/api/health
-curl -v http://76.13.177.213/cre/api/health
+curl -v http://127.0.0.1:3002/api/status
 ```
 
 ## Monitoring
@@ -262,5 +261,5 @@ Important files to backup:
 - ✅ Nginx maps /cre to port 3002
 - ✅ Only ports 22, 80, 443 are public
 - ✅ Service runs under systemd as agent
-- ✅ Health check works via `curl http://localhost:3002/api/health`
+- ✅ Status check works via `curl http://localhost:3002/api/status`
 - ✅ Dashboard accessible via `http://VPS_IP/cre`

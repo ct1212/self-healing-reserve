@@ -4,7 +4,7 @@ Autonomous proof-of-reserve system combining **Chainlink CRE confidential comput
 
 Built for **Chainlink Convergence Hackathon 2026**.
 
-**[Live Demo Dashboard](http://76.13.177.213/cre/)** | see it running with real Chainlink data.
+**[Live Demo Dashboard](http://76.13.177.213/cre/)** — running with real Chainlink wBTC PoR data on Ethereum mainnet.
 
 ## Architecture
 
@@ -145,7 +145,6 @@ mock-api/
 
 dashboard/
   server.ts                         Express backend on :3002 (Chainlink PoR + chain data)
-  health.ts                         Health monitor (feed freshness, RPC, API)
   alerts.ts                         Alert system (email, Slack, Discord)
   public/index.html                 Single-page live dashboard (no build step)
 
@@ -176,12 +175,11 @@ A live web dashboard provides real-time visibility into the system. **[View the 
 - **Chainlink PoR data**: live wBTC Proof of Reserve from Ethereum mainnet (feed address, round ID, last updated)
 - **Attestation status**: large green/red indicator showing current solvency
 - **Reserve data**: total reserves, liabilities, and collateralization ratio sourced from Chainlink
-- **Simulate recovery**: two scenarios using real Chainlink data:
-  - *Small deficit*: agent computes the wBTC shortfall, swaps USDC via direct Uniswap swap (3 steps)
+- **Simulate recovery**: three scenarios using real Chainlink data:
+  - *Small deficit*: agent computes the wBTC shortfall, swaps USDC via direct Uniswap swap, restores to 105% (3 steps)
   - *Large deficit*: agent routes wBTC through a confidential dark pool with TEE matching and ZK settlement (4 steps)
-  - *Failed recovery*: dark pool TEE matching times out, demonstrating failure handling
+  - *Failed recovery*: dark pool TEE matching times out — system stays undercollateralized until manual reset
 - **Recovery history**: step-by-step breakdown with mechanism badges (Direct Wallet Swap / Confidential Dark Pool)
-- **Health monitoring**: Chainlink feed freshness, blockchain connectivity, API status
 - **Event timeline**: scrollable history of on-chain `ReserveStatusUpdated` events
 
 The dashboard auto-starts with `npm run demo`, or run standalone:
