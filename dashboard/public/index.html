@@ -1239,7 +1239,7 @@
 </head>
 <body>
   <h1>Self-Healing Reserve</h1>
-  <p class="subtitle">Live Dashboard // Chainlink CRE + Coinbase Agentic Wallet</p>
+  <p class="subtitle">Live Dashboard // Chainlink CRE + Autonomous Recovery</p>
 
   <p class="description">
     Autonomous proof-of-reserve monitoring powered by live Chainlink wBTC PoR data. Reserve balances are verified confidentially inside a Chainlink CRE Trusted Execution Environment, publishing only a boolean solvency attestation on-chain. When undercollateralization is detected, an AI agent selects the optimal recovery strategy: direct Uniswap swaps for small deficits, or confidential dark pool execution via TEE matching for large ones where market impact matters. No human intervention required.
@@ -1274,7 +1274,7 @@
     <div class="arch-step">
       <div class="arch-step-num">5</div>
       <div class="arch-label">Wallet Recovery</div>
-      <div class="arch-desc">Autonomous trade and transfer via agentic wallet</div>
+      <div class="arch-desc">Autonomous swap and transfer via MPC wallet</div>
     </div>
   </div>
 
@@ -1350,7 +1350,7 @@
 
     <div class="dp-live-steps">
       <div class="dp-live-step waiting" id="ds-step-1">
-        <span class="privacy-tag" style="background:rgba(59,130,246,0.15);color:#3b82f6;">Coinbase</span>
+        <span class="privacy-tag" style="background:rgba(59,130,246,0.15);color:#3b82f6;">Wallet</span>
         <div class="dp-live-step-num">Step 1</div>
         <div class="dp-live-step-icon">&#128179;</div>
         <div class="dp-live-step-name">Check Balance</div>
@@ -1684,7 +1684,7 @@
     <div class="tech-badges">
       <span class="tech-badge">Chainlink CRE</span>
       <span class="tech-badge">Confidential Dark Pool</span>
-      <span class="tech-badge">Coinbase Agentic Wallet</span>
+      <span class="tech-badge">MPC Wallet</span>
       <span class="tech-badge">ZK Proofs</span>
       <span class="tech-badge">Solidity</span>
       <span class="tech-badge">Hardhat</span>
@@ -1694,7 +1694,7 @@
     <div class="footer-links">
       <a href="https://github.com/ct1212/self-healing-reserve" target="_blank">GitHub</a>
       <a href="https://docs.chain.link/chainlink-functions" target="_blank">Chainlink Docs</a>
-      <a href="https://docs.cdp.coinbase.com/agentic-wallets/docs/welcome" target="_blank">Coinbase Agentic Wallets</a>
+      <a href="https://docs.chain.link/chainlink-functions/resources/architecture" target="_blank">CRE Architecture</a>
     </div>
   </div>
 
@@ -1886,7 +1886,7 @@
 
       // Step 1: Check Balance (0ms - 500ms)
       setTimeout(function() {
-        setDSStep(1, 'active', 'Querying Coinbase agentic wallet USDC balance...', null);
+        setDSStep(1, 'active', 'Querying agent wallet USDC balance...', null);
       }, 100);
       setTimeout(function() {
         setDSStep(1, 'done', 'Wallet has ' + usdAmount + ' USDC available for recovery.', 50);

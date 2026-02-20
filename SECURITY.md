@@ -25,7 +25,7 @@ This document explains the security model of the Self-Healing Reserve system, di
                                  ▼
                         ┌────────────────────┐
                         │  Recovery Agent    │    ◀── off-chain, dry-run in demo
-                        │  awal wallet CLI   │
+                        │  MPC wallet        │
                         └────────────────────┘
 ```
 
@@ -48,7 +48,7 @@ The demo (`npm run demo`) replicates the full architecture locally without a rea
 - **`demo/simulate-workflow.ts`** performs the same fetch-compare-attest logic that the CRE workflow would, but runs as a regular Node.js process. There is no enclave isolation.
 - **Hardhat node** uses the well-known test mnemonic (`test test test ... junk`). These are deterministic test accounts with no real value.
 - **Mock API** (`mock-api/server.ts`) runs on `localhost:3001` with no authentication. In production, the API would require credentials stored in the DON vault.
-- **Recovery agent** runs with `AWAL_DRY_RUN=true` — wallet commands are logged but never executed. No real funds are involved.
+- **Recovery agent** runs in dry-run mode — wallet commands are logged but never executed. No real funds are involved.
 
 ## Demo vs Production Comparison
 
@@ -60,15 +60,15 @@ The demo (`npm run demo`) replicates the full architecture locally without a rea
 | Consensus | Single process, no consensus | Multi-node DON consensus |
 | Blockchain | Hardhat (test mnemonic) | Ethereum mainnet/L2 |
 | Attestation write | `updateAttestation()` direct call | `onReport()` via DON |
-| Wallet operations | `AWAL_DRY_RUN=true` (logged only) | Coinbase MPC wallet (real tx) |
+| Wallet operations | Dry-run (logged only) | MPC wallet (real tx) |
 | Private keys | Hardhat test accounts | No raw keys (MPC wallet) |
 
 ## Wallet Security
 
-The recovery agent uses `awal` (Coinbase agentic wallet CLI) for wallet operations:
+The recovery agent uses an MPC wallet for wallet operations:
 
-- **Dry-run mode** (`AWAL_DRY_RUN=true`) is the default. All wallet commands are logged but not executed. This is always enabled in the demo.
-- **MPC wallet** — when authenticated in production, `awal` uses Coinbase's MPC (Multi-Party Computation) wallet infrastructure. No raw private keys are ever exposed to the agent process.
+- **Dry-run mode** is the default. All wallet commands are logged but not executed. This is always enabled in the demo.
+- **MPC custody** — in production, the wallet uses Multi-Party Computation so no raw private keys are ever exposed to the agent process.
 - **Constrained actions** — the agent only executes three predefined recovery steps:
   1. `balance` — check available funds
   2. `trade` — swap ETH to USDC

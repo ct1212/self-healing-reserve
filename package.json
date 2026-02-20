@@ -2,7 +2,7 @@
   "name": "self-healing-reserve",
   "version": "0.1.0",
   "private": true,
-  "description": "Self-Healing Reserve — CRE + Coinbase Agentic Wallet demo",
+  "description": "Self-Healing Reserve — Chainlink CRE confidential proof-of-reserve with autonomous recovery",
   "scripts": {
     "setup": "npm install && cd mock-api && npm install && cd ../workflow && npm install && cd ../agent && npm install && cd ../demo && npm install && cd ../dashboard && npm install",
     "mock-api": "npx tsx mock-api/server.ts",
