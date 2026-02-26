@@ -1284,64 +1284,83 @@
     <span class="conn-poll-time" id="conn-poll-time"></span>
   </div>
 
-  <!-- Dark Pool Explainer -->
-  <div class="darkpool-explainer">
-    <h2>Confidential Dark Pool Recovery</h2>
-    <p class="dp-subtitle">When deficits exceed $50M, recovery routes through a confidential dark pool powered by Chainlink CRE to prevent market impact and information leakage.</p>
-
-    <div class="dp-why">
-      <div class="dp-why-problem">
-        <h3>The Problem: Public Recovery</h3>
-        <ul>
-          <li>Large swaps on Uniswap move the market</li>
-          <li>MEV bots front-run recovery transactions</li>
-          <li>Competitors see exact deficit amount on-chain</li>
-          <li>Market panics when shortfall becomes public</li>
-        </ul>
+  <!-- Live Data -->
+  <div class="grid">
+    <!-- Status -->
+    <div class="card">
+      <h2>Attestation Status</h2>
+      <div class="status-block">
+        <div class="status-dot" id="status-dot"></div>
+        <span class="status-label" id="status-label">---</span>
       </div>
-      <div class="dp-why-solution">
-        <h3>The Solution: Confidential Dark Pool</h3>
-        <ul>
-          <li>Order amount encrypted with TEE public key</li>
-          <li>Matching happens privately inside the enclave</li>
-          <li>Zero market impact &mdash; no public orderbook</li>
-          <li>ZK proof verifies settlement without revealing amounts</li>
-        </ul>
+      <div style="margin-top: 16px;">
+        <div class="stat-row">
+          <span class="stat-label">Contract</span>
+          <span class="stat-value" id="contract-solvent">---</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Last Updated</span>
+          <span class="stat-value" id="contract-updated">---</span>
+        </div>
       </div>
     </div>
 
-    <div class="dp-flow">
-      <div class="dp-flow-step" id="dp-explain-1">
-        <span class="dp-flow-icon">&#128274;</span>
-        <div class="dp-flow-label">Encrypt Order</div>
-        <div class="dp-flow-desc">Deficit amount encrypted with TEE public key using AES-256-GCM. No one can read the order size.</div>
-        <span class="dp-flow-privacy private">&#128274; Private</span>
+    <!-- Reserves -->
+    <div class="card">
+      <h2 id="reserve-card-title">Reserve Data</h2>
+      <div id="chainlink-feed-info" style="font-size:0.75rem;color:#666;margin:-10px 0 12px;display:none;">
+        <span id="feed-description"></span>
+        <span id="feed-address" style="margin-left:8px;color:#555;cursor:default;" title=""></span>
       </div>
-      <div class="dp-flow-arrow">&#10132;</div>
-      <div class="dp-flow-step" id="dp-explain-2">
-        <span class="dp-flow-icon">&#128225;</span>
-        <div class="dp-flow-label">Submit to Pool</div>
-        <div class="dp-flow-desc">Encrypted request submitted to CREDarkPool contract. Market makers see a request exists, but not the amount.</div>
-        <span class="dp-flow-privacy private">&#128274; Encrypted</span>
+      <div class="stat-row">
+        <span class="stat-label">Total Reserve</span>
+        <span class="stat-value" id="total-reserve">---</span>
       </div>
-      <div class="dp-flow-arrow">&#10132;</div>
-      <div class="dp-flow-step" id="dp-explain-3">
-        <span class="dp-flow-icon">&#128737;</span>
-        <div class="dp-flow-label">TEE Matching</div>
-        <div class="dp-flow-desc">Inside the Chainlink CRE enclave, multiple market makers' liquidity is matched against the request. Completely invisible to the mempool.</div>
-        <span class="dp-flow-privacy private">&#128274; TEE Enclave</span>
+      <div class="stat-row">
+        <span class="stat-label">Total Liabilities</span>
+        <span class="stat-value" id="total-liabilities">---</span>
       </div>
-      <div class="dp-flow-arrow">&#10132;</div>
-      <div class="dp-flow-step" id="dp-explain-4">
-        <span class="dp-flow-icon">&#9989;</span>
-        <div class="dp-flow-label">ZK Settlement</div>
-        <div class="dp-flow-desc">A zero-knowledge proof confirms settlement happened and amounts match &mdash; without revealing the actual values on-chain.</div>
-        <span class="dp-flow-privacy public">&#10003; Verified</span>
+      <div class="stat-row">
+        <span class="stat-label">Ratio</span>
+        <span class="stat-value" id="ratio-value">---</span>
       </div>
+      <div class="stat-row" id="feed-updated-row" style="display:none;">
+        <span class="stat-label">Feed Updated</span>
+        <span class="stat-value" id="feed-updated" style="font-size:0.85rem;">---</span>
+      </div>
+      <div class="stat-row" id="feed-round-row" style="display:none;">
+        <span class="stat-label">Round</span>
+        <span class="stat-value" id="feed-round" style="font-size:0.85rem;">---</span>
+      </div>
+      <div class="ratio-bar-container">
+        <div class="ratio-label">
+          <span>0%</span>
+          <span>100%</span>
+          <span>200%</span>
+        </div>
+        <div class="ratio-bar-track">
+          <div class="ratio-bar-fill" id="ratio-bar"></div>
+          <div class="ratio-threshold"></div>
+          <div class="ratio-threshold-label">Solvency Threshold</div>
+        </div>
+      </div>
+      <div id="ratio-chart" style="margin-top:20px;"></div>
     </div>
   </div>
 
-  <!-- Live Dark Pool Execution Panel (shown during simulation) -->
+  <!-- Demo Controls -->
+  <div class="demo-controls">
+    <h2>Demo Controls</h2>
+    <p class="demo-desc">Trigger scenarios to see the self-healing pipeline in action. The agent automatically selects the recovery mechanism based on deficit size.</p>
+    <div class="demo-btn-group">
+      <button id="btn-simulate" class="btn btn-primary" onclick="simulateRecovery()">Small Deficit &mdash; Direct Swap</button>
+      <button id="btn-simulate-large" class="btn btn-darkpool" onclick="simulateLargeDeficit()">Large Deficit &mdash; Dark Pool</button>
+      <button id="btn-simulate-fail" class="btn btn-danger-outline" onclick="simulateFailure()">Dark Pool Failure</button>
+      <button class="btn" onclick="resetSimulation()" style="margin-left: 8px; opacity: 0.7;">Reset</button>
+    </div>
+  </div>
+
+  <!-- Live Execution Panels (shown during simulation) -->
   <div class="dp-live-panel direct-swap" id="ds-live-panel">
     <div class="dp-live-header">
       <span class="dp-live-title">Direct Wallet Recovery</span>
@@ -1462,115 +1481,65 @@
     </div>
   </div>
 
-  <!-- Demo Controls -->
-  <div class="demo-controls">
-    <h2>Demo Controls</h2>
-    <p class="demo-desc">Trigger scenarios to see the self-healing pipeline in action. The agent automatically selects the recovery mechanism based on deficit size.</p>
-    <div class="demo-btn-group">
-      <button id="btn-simulate" class="btn btn-primary" onclick="simulateRecovery()">Small Deficit &mdash; Direct Swap</button>
-      <button id="btn-simulate-large" class="btn btn-darkpool" onclick="simulateLargeDeficit()">Large Deficit &mdash; Dark Pool</button>
-      <button id="btn-simulate-fail" class="btn btn-danger-outline" onclick="simulateFailure()">Dark Pool Failure</button>
-      <button class="btn" onclick="resetSimulation()" style="margin-left: 8px; opacity: 0.7;">Reset</button>
+  <!-- Dark Pool Explainer -->
+  <div class="darkpool-explainer">
+    <h2>Confidential Dark Pool Recovery</h2>
+    <p class="dp-subtitle">When deficits exceed $50M, recovery routes through a confidential dark pool powered by Chainlink CRE to prevent market impact and information leakage.</p>
+
+    <div class="dp-why">
+      <div class="dp-why-problem">
+        <h3>The Problem: Public Recovery</h3>
+        <ul>
+          <li>Large swaps on Uniswap move the market</li>
+          <li>MEV bots front-run recovery transactions</li>
+          <li>Competitors see exact deficit amount on-chain</li>
+          <li>Market panics when shortfall becomes public</li>
+        </ul>
+      </div>
+      <div class="dp-why-solution">
+        <h3>The Solution: Confidential Dark Pool</h3>
+        <ul>
+          <li>Order amount encrypted with TEE public key</li>
+          <li>Matching happens privately inside the enclave</li>
+          <li>Zero market impact &mdash; no public orderbook</li>
+          <li>ZK proof verifies settlement without revealing amounts</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="dp-flow">
+      <div class="dp-flow-step" id="dp-explain-1">
+        <span class="dp-flow-icon">&#128274;</span>
+        <div class="dp-flow-label">Encrypt Order</div>
+        <div class="dp-flow-desc">Deficit amount encrypted with TEE public key using AES-256-GCM. No one can read the order size.</div>
+        <span class="dp-flow-privacy private">&#128274; Private</span>
+      </div>
+      <div class="dp-flow-arrow">&#10132;</div>
+      <div class="dp-flow-step" id="dp-explain-2">
+        <span class="dp-flow-icon">&#128225;</span>
+        <div class="dp-flow-label">Submit to Pool</div>
+        <div class="dp-flow-desc">Encrypted request submitted to CREDarkPool contract. Market makers see a request exists, but not the amount.</div>
+        <span class="dp-flow-privacy private">&#128274; Encrypted</span>
+      </div>
+      <div class="dp-flow-arrow">&#10132;</div>
+      <div class="dp-flow-step" id="dp-explain-3">
+        <span class="dp-flow-icon">&#128737;</span>
+        <div class="dp-flow-label">TEE Matching</div>
+        <div class="dp-flow-desc">Inside the Chainlink CRE enclave, multiple market makers' liquidity is matched against the request. Completely invisible to the mempool.</div>
+        <span class="dp-flow-privacy private">&#128274; TEE Enclave</span>
+      </div>
+      <div class="dp-flow-arrow">&#10132;</div>
+      <div class="dp-flow-step" id="dp-explain-4">
+        <span class="dp-flow-icon">&#9989;</span>
+        <div class="dp-flow-label">ZK Settlement</div>
+        <div class="dp-flow-desc">A zero-knowledge proof confirms settlement happened and amounts match &mdash; without revealing the actual values on-chain.</div>
+        <span class="dp-flow-privacy public">&#10003; Verified</span>
+      </div>
     </div>
   </div>
 
+  <!-- Mechanism Comparison -->
   <div class="grid">
-    <!-- Status -->
-    <div class="card">
-      <h2>Attestation Status</h2>
-      <div class="status-block">
-        <div class="status-dot" id="status-dot"></div>
-        <span class="status-label" id="status-label">---</span>
-      </div>
-      <div style="margin-top: 16px;">
-        <div class="stat-row">
-          <span class="stat-label">Contract</span>
-          <span class="stat-value" id="contract-solvent">---</span>
-        </div>
-        <div class="stat-row">
-          <span class="stat-label">Last Updated</span>
-          <span class="stat-value" id="contract-updated">---</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Reserves -->
-    <div class="card">
-      <h2 id="reserve-card-title">Reserve Data</h2>
-      <div id="chainlink-feed-info" style="font-size:0.75rem;color:#666;margin:-10px 0 12px;display:none;">
-        <span id="feed-description"></span>
-        <span id="feed-address" style="margin-left:8px;color:#555;cursor:default;" title=""></span>
-      </div>
-      <div class="stat-row">
-        <span class="stat-label">Total Reserve</span>
-        <span class="stat-value" id="total-reserve">---</span>
-      </div>
-      <div class="stat-row">
-        <span class="stat-label">Total Liabilities</span>
-        <span class="stat-value" id="total-liabilities">---</span>
-      </div>
-      <div class="stat-row">
-        <span class="stat-label">Ratio</span>
-        <span class="stat-value" id="ratio-value">---</span>
-      </div>
-      <div class="stat-row" id="feed-updated-row" style="display:none;">
-        <span class="stat-label">Feed Updated</span>
-        <span class="stat-value" id="feed-updated" style="font-size:0.85rem;">---</span>
-      </div>
-      <div class="stat-row" id="feed-round-row" style="display:none;">
-        <span class="stat-label">Round</span>
-        <span class="stat-value" id="feed-round" style="font-size:0.85rem;">---</span>
-      </div>
-      <div class="ratio-bar-container">
-        <div class="ratio-label">
-          <span>0%</span>
-          <span>100%</span>
-          <span>200%</span>
-        </div>
-        <div class="ratio-bar-track">
-          <div class="ratio-bar-fill" id="ratio-bar"></div>
-          <div class="ratio-threshold"></div>
-          <div class="ratio-threshold-label">Solvency Threshold</div>
-        </div>
-      </div>
-      <div id="ratio-chart" style="margin-top:20px;"></div>
-    </div>
-
-    <!-- Event Timeline -->
-    <div class="card">
-      <h2>Event Timeline</h2>
-      <div class="timeline" id="event-timeline">
-        <div class="empty-state">Waiting for events...</div>
-      </div>
-      <div class="btn-group">
-        <a href="api/export/events.json" class="btn" download>Download JSON</a>
-        <a href="api/export/events.csv" class="btn" download>Download CSV</a>
-      </div>
-    </div>
-
-    <!-- Agent Metrics -->
-    <div class="card">
-      <h2>Agent Metrics</h2>
-      <div id="agent-metrics-content">
-        <div class="empty-state">Waiting for agent reports...</div>
-      </div>
-    </div>
-
-    <!-- Recovery Strategies -->
-    <div class="card full-width">
-      <h2>Recovery Strategies</h2>
-      <div style="margin-bottom: 12px;">
-        <div class="stat-row">
-          <span class="stat-label">Current Strategy</span>
-          <span class="stat-value" id="strategy-label">---</span>
-        </div>
-      </div>
-      <div id="recovery-steps">
-        <div class="empty-state">No recovery executed yet. Use the demo controls above to trigger a recovery simulation.</div>
-      </div>
-    </div>
-
-    <!-- Mechanism Comparison -->
     <div class="card full-width">
       <h2>Recovery Mechanism Comparison</h2>
       <div class="mechanism-compare">
@@ -1646,9 +1615,42 @@
         </div>
       </div>
     </div>
+  </div>
+
+  <!-- Operational Details -->
+  <div class="grid">
+    <!-- Recovery Strategies -->
+    <div class="card full-width">
+      <h2>Recovery Strategies</h2>
+      <div style="margin-bottom: 12px;">
+        <div class="stat-row">
+          <span class="stat-label">Current Strategy</span>
+          <span class="stat-value" id="strategy-label">---</span>
+        </div>
+      </div>
+      <div id="recovery-steps">
+        <div class="empty-state">No recovery executed yet. Use the demo controls above to trigger a recovery simulation.</div>
+      </div>
+    </div>
+
+    <!-- Event Timeline -->
+    <div class="card">
+      <h2>Event Timeline</h2>
+      <div class="timeline" id="event-timeline">
+        <div class="empty-state">Waiting for events...</div>
+      </div>
+    </div>
+
+    <!-- Agent Metrics -->
+    <div class="card">
+      <h2>Agent Metrics</h2>
+      <div id="agent-metrics-content">
+        <div class="empty-state">Waiting for agent reports...</div>
+      </div>
+    </div>
 
     <!-- Agent Activity -->
-    <div class="card">
+    <div class="card full-width">
       <h2>Agent Activity</h2>
       <div class="timeline" id="agent-activity">
         <div class="empty-state">No recovery actions yet.</div>
