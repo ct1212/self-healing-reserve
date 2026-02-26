@@ -2,7 +2,7 @@
 
 **When a wrapped-asset reserve drops below 100% collateralization, the world finds out. Panic selling, depegs, and bank runs follow — not because the reserve can't be fixed, but because the fix is visible.**
 
-CRE Powered Self-Healing Reserve solves this with **Chainlink CRE** (Confidential Compute Runtime). A CRE workflow verifies reserves inside a TEE, publishes only a boolean attestation on-chain, and when reserves are undercollateralized, a recovery agent autonomously rebalances — without ever revealing the deficit size, counterparties, or recovery strategy to the public.
+CRE Powered Self-Healing Reserve solves this with **Chainlink CRE** (Chainlink Runtime Environment). A CRE workflow verifies reserves inside a TEE, publishes only a boolean attestation on-chain, and when reserves are undercollateralized, a recovery agent autonomously rebalances — without ever revealing the deficit size, counterparties, or recovery strategy to the public.
 
 **[Live Demo](https://self-healing-reserve.vercel.app)** | Built for **Chainlink Convergence Hackathon 2026**
 
@@ -133,7 +133,7 @@ See [SECURITY.md](./SECURITY.md) for the full security architecture, including w
 
 ## Stack
 
-- **Chainlink CRE** — Confidential Compute Runtime (TEE-based verification)
+- **Chainlink CRE** — Chainlink Runtime Environment (TEE-based verification)
 - **Chainlink Proof of Reserve** — live wBTC PoR feed on Ethereum mainnet
 - **MPC wallet** — autonomous agent wallet (no raw private keys)
 - **Solidity 0.8.19** — ReserveAttestation + CREDarkPool contracts
