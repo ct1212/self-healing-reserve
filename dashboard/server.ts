@@ -927,24 +927,27 @@ async function pollEvents() {
   }
 }
 
-const server = app.listen(PORT, BIND_HOST, () => {
-  console.log(`[dashboard] Server listening on ${BIND_HOST}:${PORT}`)
-  if (BIND_HOST === '127.0.0.1') {
-    console.log(`[dashboard] Access via Nginx: http://${PUBLIC_URL}/cre`)
-  } else {
-    console.log(`[dashboard] Direct access: http://${PUBLIC_URL}:${PORT}`)
-  }
+// In Vercel serverless mode, don't start the server or background tasks
+if (!process.env.VERCEL) {
+  const server = app.listen(PORT, BIND_HOST, () => {
+    console.log(`[dashboard] Server listening on ${BIND_HOST}:${PORT}`)
+    if (BIND_HOST === '127.0.0.1') {
+      console.log(`[dashboard] Access via Nginx: http://${PUBLIC_URL}/cre`)
+    } else {
+      console.log(`[dashboard] Direct access: http://${PUBLIC_URL}:${PORT}`)
+    }
 
-  // Start background tasks
-  pollEvents()
+    // Start background tasks
+    pollEvents()
 
-  console.log('[dashboard] Background event polling started')
-  console.log(`[dashboard] Chainlink PoR feed: ${CHAINLINK_FEED_ADDRESS}`)
-  console.log(`[dashboard] Chainlink RPC: ${CHAINLINK_RPC}`)
-  console.log(`[dashboard] Alerts: ${alertManager.getConfig().enabled ? 'enabled' : 'disabled'}`)
-})
+    console.log('[dashboard] Background event polling started')
+    console.log(`[dashboard] Chainlink PoR feed: ${CHAINLINK_FEED_ADDRESS}`)
+    console.log(`[dashboard] Chainlink RPC: ${CHAINLINK_RPC}`)
+    console.log(`[dashboard] Alerts: ${alertManager.getConfig().enabled ? 'enabled' : 'disabled'}`)
+  })
 
-process.on('SIGTERM', () => { server.close() })
-process.on('SIGINT', () => { server.close() })
+  process.on('SIGTERM', () => { server.close() })
+  process.on('SIGINT', () => { server.close() })
+}
 
-export { app, server }
+export { app }

@@ -1,10 +1,10 @@
-# Self-Healing Reserve
+# CRE Powered Self-Healing Reserve
 
 **When a wrapped-asset reserve drops below 100% collateralization, the world finds out. Panic selling, depegs, and bank runs follow — not because the reserve can't be fixed, but because the fix is visible.**
 
-Self-Healing Reserve solves this with **Chainlink CRE** (Confidential Compute Runtime). A CRE workflow verifies reserves inside a TEE, publishes only a boolean attestation on-chain, and when reserves are undercollateralized, a recovery agent autonomously rebalances — without ever revealing the deficit size, counterparties, or recovery strategy to the public.
+CRE Powered Self-Healing Reserve solves this with **Chainlink CRE** (Confidential Compute Runtime). A CRE workflow verifies reserves inside a TEE, publishes only a boolean attestation on-chain, and when reserves are undercollateralized, a recovery agent autonomously rebalances — without ever revealing the deficit size, counterparties, or recovery strategy to the public.
 
-**[Live Demo](http://76.13.177.213/cre/)** | Built for **Chainlink Convergence Hackathon 2026**
+**[Live Demo](https://self-healing-reserve.vercel.app)** | Built for **Chainlink Convergence Hackathon 2026**
 
 ---
 
@@ -84,7 +84,7 @@ Settlement on-chain with ZK proof
 
 ## Live Dashboard
 
-The **[live demo dashboard](http://76.13.177.213/cre/)** uses real **Chainlink wBTC Proof of Reserve** data from Ethereum mainnet.
+The **[live demo dashboard](https://self-healing-reserve.vercel.app)** uses real **Chainlink wBTC Proof of Reserve** data from Ethereum mainnet.
 
 Three simulation scenarios demonstrate the system end-to-end:
 

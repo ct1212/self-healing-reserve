@@ -2,6 +2,7 @@
   "name": "self-healing-reserve",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "description": "Self-Healing Reserve — Chainlink CRE confidential proof-of-reserve with autonomous recovery",
   "scripts": {
     "setup": "npm install && cd mock-api && npm install && cd ../workflow && npm install && cd ../agent && npm install && cd ../demo && npm install && cd ../dashboard && npm install",
@@ -11,10 +12,17 @@
     "demo": "npx tsx demo/run.ts",
     "compile": "npx tsx demo/deploy-contract.ts --compile-only"
   },
+  "dependencies": {
+    "express": "^4.21.0",
+    "nodemailer": "^6.9.8",
+    "viem": "^2.21.0"
+  },
   "devDependencies": {
     "tsx": "^4.19.0",
     "typescript": "^5.5.0",
     "hardhat": "^2.22.0",
-    "@types/node": "^22.0.0"
+    "@types/node": "^22.0.0",
+    "@types/express": "^5.0.0",
+    "@types/nodemailer": "^6.4.14"
   }
 }
