@@ -82,6 +82,22 @@ Settlement on-chain with ZK proof
     PRIVATE: How much, from whom, at what price
 ```
 
+### Dark Pool Liquidity: How Capital Is Ready When Needed
+
+The dark pool only works if there's liquidity sitting on the other side of the trade when a crisis hits. This doesn't happen by accident — institutional market makers pre-commit capital into the CREDarkPool contract ahead of time:
+
+1. **Market makers deposit wBTC (or USDC) into the dark pool** — these are institutional desks (OTC firms, large funds, custodians) who earn a premium for providing standby liquidity. Think of it like an insurance float: capital sits idle most of the time, but earns yield for being available.
+
+2. **Commitments are encrypted and private** — thanks to the TEE, no market maker knows the total pool depth, and no one outside the TEE knows who has committed or how much. This prevents front-running of the pool itself.
+
+3. **When a deficit occurs, the TEE matching engine pairs the recovery order against committed liquidity** — it fills the order across multiple market makers, splitting the size so no single counterparty sees the full deficit. Each fill is at a fair price (TWAP ± basis points), verified inside the enclave.
+
+4. **Market makers are incentivized** — they earn a spread on every fill (negotiated at commitment time), plus they get priority access to large OTC flow they'd never see on public DEXs. For institutional desks, this is attractive deal flow, not charity.
+
+5. **If liquidity is insufficient, the dark pool fails gracefully** — the TEE matching engine times out, and the system reports the failure without revealing the order size or the pool's capacity. The reserve stays undercollateralized until manual intervention or a retry with different parameters. This is demonstrated in the "Dark Pool Failure" simulation.
+
+The key tradeoff: the dark pool requires pre-positioned capital, which means ongoing relationships with institutional liquidity providers. In exchange, when a crisis hits, recovery executes in seconds with zero market visibility — no front-running, no panic, no MEV extraction.
+
 ## Live Dashboard
 
 The **[live demo dashboard](https://self-healing-reserve.vercel.app)** uses real **Chainlink wBTC Proof of Reserve** data from Ethereum mainnet.
