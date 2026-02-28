@@ -1208,9 +1208,79 @@
         max-width: 100%;
       }
     }
+
+    /* Disclaimer modal */
+    .disclaimer-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.75);
+      z-index: 10000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .disclaimer-box {
+      background: #1a0a0a;
+      border: 2px solid #ef4444;
+      border-radius: 12px;
+      padding: 32px;
+      max-width: 560px;
+      width: 100%;
+      box-shadow: 0 0 40px rgba(239, 68, 68, 0.3);
+    }
+
+    .disclaimer-box h2 {
+      color: #ef4444;
+      font-size: 1.1rem;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      margin-bottom: 16px;
+      text-align: center;
+    }
+
+    .disclaimer-box p {
+      color: #e0e0e0;
+      font-size: 0.88rem;
+      line-height: 1.7;
+      margin-bottom: 12px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+
+    .disclaimer-box .dismiss-btn {
+      display: block;
+      margin: 20px auto 0;
+      background: #ef4444;
+      color: #fff;
+      border: none;
+      padding: 10px 32px;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-weight: bold;
+      cursor: pointer;
+      letter-spacing: 1px;
+    }
+
+    .disclaimer-box .dismiss-btn:hover {
+      background: #dc2626;
+    }
   </style>
 </head>
 <body>
+  <!-- Disclaimer Modal -->
+  <div class="disclaimer-overlay" id="disclaimerModal">
+    <div class="disclaimer-box">
+      <h2>Simulation Only</h2>
+      <p>This is a <strong>simulation</strong> and does not reflect the actual state of wBTC reserves. The real wBTC reserves are completely fine.</p>
+      <p>This simulation presupposes that there is no irrevocable catastrophic failure on wBTC. It is designed solely to demonstrate how a self-healing reserve system would respond to hypothetical undercollateralization scenarios.</p>
+      <button class="dismiss-btn" onclick="document.getElementById('disclaimerModal').style.display='none'">I Understand</button>
+    </div>
+  </div>
+
   <h1>CRE Powered Self-Healing Reserve</h1>
   <p class="subtitle">Live Dashboard // Chainlink Runtime Environment + Autonomous Recovery</p>
 
