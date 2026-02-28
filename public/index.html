@@ -1702,6 +1702,7 @@
     const API = 'api/status';
     let lastEventCount = 0;
     let alertHistoryVisible = false;
+    let animationTimers = [];
 
     const STEP_LABELS = {
       checkBalance: { name: 'Check Wallet Balance', desc: 'Verify USDC available for recovery swap' },
@@ -1868,39 +1869,45 @@
       status.className = 'dp-live-status ' + cls;
     }
 
+    function scheduleAnim(fn, delay) {
+      var id = setTimeout(fn, delay);
+      animationTimers.push(id);
+      return id;
+    }
+
     function animateDirectSwap(recoveryData) {
       showDSPanel();
       var amount = recoveryData ? Math.round(recoveryData.recoveryAmount).toLocaleString() + ' wBTC' : '??? wBTC';
       var usdAmount = recoveryData ? '$' + Math.round(recoveryData.recoveryAmount * 67000).toLocaleString() : '$???';
 
       // Step 1: Check Balance (0ms - 500ms)
-      setTimeout(function() {
+      scheduleAnim(function() {
         setDSStep(1, 'active', 'Querying agent wallet USDC balance...', null);
       }, 100);
-      setTimeout(function() {
+      scheduleAnim(function() {
         setDSStep(1, 'done', 'Wallet has ' + usdAmount + ' USDC available for recovery.', 50);
         document.getElementById('ds-data-balance').textContent = usdAmount + ' USDC available';
         document.getElementById('ds-data-balance').style.color = '#22c55e';
       }, 600);
 
       // Step 2: Swap on Uniswap (600ms - 1800ms)
-      setTimeout(function() {
+      scheduleAnim(function() {
         setDSStep(2, 'active', 'Submitting swap on Uniswap: USDC \u2192 wBTC at market rate...', null);
       }, 700);
-      setTimeout(function() {
+      scheduleAnim(function() {
         setDSStep(2, 'active', 'Swap executing... waiting for block confirmation...', null);
       }, 1200);
-      setTimeout(function() {
+      scheduleAnim(function() {
         setDSStep(2, 'done', 'Swapped ' + usdAmount + ' USDC \u2192 ' + amount + ' on Uniswap V3.', 150);
         document.getElementById('ds-data-route').textContent = 'Uniswap V3: USDC \u2192 wBTC';
         document.getElementById('ds-data-route').style.color = '#22c55e';
       }, 1800);
 
       // Step 3: Send to Reserve (1800ms - 2800ms)
-      setTimeout(function() {
+      scheduleAnim(function() {
         setDSStep(3, 'active', 'Transferring ' + amount + ' to reserve address...', null);
       }, 1900);
-      setTimeout(function() {
+      scheduleAnim(function() {
         var txHash = '0x' + Math.random().toString(16).slice(2, 10) + '...';
         setDSStep(3, 'done', 'Sent ' + amount + ' to reserve. Tx: ' + txHash, 100);
         setDSStatus('Complete', 'complete');
@@ -1970,34 +1977,34 @@
       var amount = recoveryData ? Math.round(recoveryData.recoveryAmount).toLocaleString() + ' wBTC' : '??? wBTC';
 
       // Step 1: Encrypt (0ms - 500ms)
-      setTimeout(function() {
+      scheduleAnim(function() {
         setDPStep(1, 'active', 'Encrypting deficit amount with TEE public key...', null);
       }, 100);
-      setTimeout(function() {
+      scheduleAnim(function() {
         setDPStep(1, 'done', 'Order encrypted with AES-256-GCM. 128-byte ciphertext generated.', 80);
         document.getElementById('dp-data-amount').textContent = '\u{1F512} ' + amount + ' (encrypted)';
       }, 600);
 
       // Step 2: Submit (600ms - 1200ms)
-      setTimeout(function() {
+      scheduleAnim(function() {
         setDPStep(2, 'active', 'Submitting encrypted order to CREDarkPool contract...', null);
       }, 700);
-      setTimeout(function() {
+      scheduleAnim(function() {
         setDPStep(2, 'done', 'Order submitted to Chainlink Confidential Dark Pool. Awaiting fill.', 120);
         document.getElementById('dp-data-public').textContent = 'Order exists (amount hidden)';
         document.getElementById('dp-data-public').style.color = '#eab308';
       }, 1300);
 
       // Step 3: TEE Matching (1300ms - 3300ms for success, fail at 3300ms)
-      setTimeout(function() {
+      scheduleAnim(function() {
         setDPStep(3, 'active', 'TEE matching engine scanning liquidity across 3 market makers...', null);
       }, 1400);
 
       if (isFailure) {
-        setTimeout(function() {
+        scheduleAnim(function() {
           setDPStep(3, 'active', 'Matching... insufficient liquidity. Extending timeout...', null);
         }, 2400);
-        setTimeout(function() {
+        scheduleAnim(function() {
           setDPStep(3, 'failed', 'TEE matching engine timed out. Insufficient dark pool liquidity.', 5000);
           setDPStep(4, 'failed', 'Skipped - previous step failed.', 0);
           setDPStatus('Failed', 'failed');
@@ -2013,10 +2020,10 @@
           document.getElementById('dp-data-public').style.color = '#ef4444';
         }, 3500);
       } else {
-        setTimeout(function() {
+        scheduleAnim(function() {
           setDPStep(3, 'active', 'Found 3 counterparties. Matching orders privately inside enclave...', null);
         }, 2200);
-        setTimeout(function() {
+        scheduleAnim(function() {
           setDPStep(3, 'done', 'Order filled by 3 counterparties at TWAP +/- 0.05%. Zero mempool visibility.', 1800);
           document.getElementById('dp-data-parties').textContent = '3 market makers (identities hidden)';
           document.getElementById('dp-data-parties').className = 'data-value';
@@ -2027,10 +2034,10 @@
         }, 3300);
 
         // Step 4: ZK Settlement (3300ms - 3900ms)
-        setTimeout(function() {
+        scheduleAnim(function() {
           setDPStep(4, 'active', 'Generating zero-knowledge proof for on-chain settlement...', null);
         }, 3400);
-        setTimeout(function() {
+        scheduleAnim(function() {
           var zkProof = '0x' + Array.from({ length: 8 }, function() { return Math.random().toString(16).slice(2, 4); }).join('');
           setDPStep(4, 'done', 'ZK proof verified. Settlement confirmed on-chain. Collateral restored.', 200);
           setDPStatus('Complete', 'complete');
@@ -2062,7 +2069,7 @@
           btn.textContent = 'Dark pool executing...';
           // Start live execution animation
           animateDPExecution(data.data, false);
-          setTimeout(function() {
+          scheduleAnim(function() {
             showToast(
               'Dark Pool Recovery Complete',
               'Confidential order filled via TEE matching engine. Settled on-chain with ZK proof.',
@@ -2103,13 +2110,17 @@
       } catch (err) {
         showToast('Error', err.message, 'error');
       } finally {
-        setTimeout(function() { enableAllSimBtns(); }, 4000);
+        scheduleAnim(function() { enableAllSimBtns(); }, 4000);
       }
     }
 
     async function resetSimulation() {
       try {
         await fetch('api/reset', { method: 'POST' });
+
+        // Cancel all pending animation timers
+        animationTimers.forEach(function(id) { clearTimeout(id); });
+        animationTimers = [];
 
         // Reset event tracking
         lastEventCount = 0;
