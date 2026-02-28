@@ -2133,8 +2133,8 @@
           '<div class="empty-state">No recovery actions yet.</div>';
         document.getElementById('ratio-chart').innerHTML =
           '<div class="empty-state" style="font-size:0.75rem;">Waiting for data points...</div>';
-        document.getElementById('alert-history').innerHTML =
-          '<div class="empty-state">No alerts yet</div>';
+        var alertHistoryEl = document.getElementById('alert-history');
+        if (alertHistoryEl) alertHistoryEl.innerHTML = '<div class="empty-state">No alerts yet</div>';
 
         // Re-enable sim buttons
         enableAllSimBtns();
