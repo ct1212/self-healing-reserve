@@ -361,28 +361,6 @@
     .activity-details { color: #999; margin-top: 2px; }
     .activity-time { color: #555; font-size: 0.75rem; }
 
-    /* Connection status */
-    .conn-status {
-      position: fixed;
-      top: 12px;
-      right: 16px;
-      font-size: 0.7rem;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      z-index: 100;
-    }
-
-    .conn-dot {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-    }
-
-    .conn-dot.ok { background: #22c55e; }
-    .conn-dot.err { background: #ef4444; }
-
-    .conn-poll-time { color: #555; }
 
     /* Metrics */
     .metrics-grid {
@@ -1219,11 +1197,6 @@
         align-items: center;
       }
 
-      .conn-status {
-        position: static;
-        justify-content: center;
-        margin-bottom: 16px;
-      }
 
       .toast-container {
         left: 16px;
@@ -1278,12 +1251,6 @@
     </div>
   </div>
 
-  <div class="conn-status">
-    <span class="conn-dot" id="conn-dot"></span>
-    <span id="conn-label">connecting...</span>
-    <span class="conn-poll-time" id="conn-poll-time"></span>
-  </div>
-
   <!-- Live Data -->
   <div class="grid">
     <!-- Status -->
@@ -1299,8 +1266,8 @@
           <span class="stat-value" id="contract-solvent">---</span>
         </div>
         <div class="stat-row">
-          <span class="stat-label">Last Updated</span>
-          <span class="stat-value" id="contract-updated">---</span>
+          <span class="stat-label">Check Frequency</span>
+          <span class="stat-value">Every block (~12s)</span>
         </div>
       </div>
     </div>
@@ -1665,7 +1632,6 @@
     const API = 'api/status';
     let lastEventCount = 0;
     let alertHistoryVisible = false;
-    let lastPollTime = null;
 
     const STEP_LABELS = {
       checkBalance: { name: 'Check Wallet Balance', desc: 'Verify USDC available for recovery swap' },
@@ -1700,13 +1666,6 @@
       return `${(ms / 60000).toFixed(1)}m`;
     }
 
-    function formatAgo(ms) {
-      if (!ms) return '';
-      const seconds = Math.floor((Date.now() - ms) / 1000);
-      if (seconds < 5) return 'just now';
-      if (seconds < 60) return `${seconds}s ago`;
-      return `${Math.floor(seconds / 60)}m ago`;
-    }
 
     function toggleAlertHistory() {
       alertHistoryVisible = !alertHistoryVisible;
@@ -2178,7 +2137,6 @@
 
       // Contract state
       document.getElementById('contract-solvent').textContent = contract.isSolvent ? 'true' : 'false';
-      document.getElementById('contract-updated').textContent = formatTime(contract.lastUpdated);
 
       // Reserves
       document.getElementById('total-reserve').textContent = formatReserveNumber(reserves.totalReserve);
@@ -2434,35 +2392,17 @@
       el.style.display = el.style.display === 'none' ? 'block' : 'none';
     }
 
-    // Update "last polled" display
-    function updatePollTime() {
-      const el = document.getElementById('conn-poll-time');
-      if (lastPollTime) {
-        el.textContent = '· ' + formatAgo(lastPollTime);
-      }
-    }
-
     async function poll() {
-      const connDot = document.getElementById('conn-dot');
-      const connLabel = document.getElementById('conn-label');
-
       try {
         const res = await fetch(API);
         if (!res.ok) throw new Error('bad response');
         const data = await res.json();
         update(data);
-        connDot.className = 'conn-dot ok';
-        connLabel.textContent = 'connected';
-        lastPollTime = Date.now();
-      } catch {
-        connDot.className = 'conn-dot err';
-        connLabel.textContent = 'disconnected';
-      }
+      } catch {}
     }
 
     poll();
     setInterval(poll, 2000);
-    setInterval(updatePollTime, 1000);
   </script>
 </body>
 </html>
