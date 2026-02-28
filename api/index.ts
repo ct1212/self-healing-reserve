@@ -378,6 +378,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (path === '/api/reset' && req.method === 'POST') {
       overrideReserves = null
       overrideAttestation = null
+      events.length = 0
+      agentActivity.length = 0
+      agentMetrics = null
+      recoveryHistory.length = 0
+      ratioHistory.length = 0
       return res.json({ ok: true })
     }
 
