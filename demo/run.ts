@@ -106,7 +106,7 @@ function startProcess(cmd: string, args: string[], label: string): ChildProcess 
 
 async function main() {
   console.log('='.repeat(60))
-  console.log('  Self-Healing Reserve — End-to-End Demo')
+  console.log('  Self-Healing Reserve: End-to-End Demo')
   console.log('='.repeat(60))
   console.log()
 

@@ -196,7 +196,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       })
     }
 
-    // POST /api/simulate — small deficit, direct wallet swap
+    // POST /api/simulate - small deficit, direct wallet swap
     if (path === '/api/simulate' && req.method === 'POST') {
       const now = Date.now()
       const cl = await fetchChainlinkData()
@@ -257,7 +257,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       })
     }
 
-    // POST /api/simulate-large — large deficit, dark pool
+    // POST /api/simulate-large - large deficit, dark pool
     if (path === '/api/simulate-large' && req.method === 'POST') {
       const now = Date.now()
       const cl = await fetchChainlinkData()
@@ -320,7 +320,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       })
     }
 
-    // POST /api/simulate-failure — dark pool failure
+    // POST /api/simulate-failure - dark pool failure
     if (path === '/api/simulate-failure' && req.method === 'POST') {
       const now = Date.now()
       const cl = await fetchChainlinkData()

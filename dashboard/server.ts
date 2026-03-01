@@ -132,7 +132,7 @@ const recoveryHistory: Array<{
 // Ratio history for chart (capped at 200)
 const ratioHistory: Array<{ timestamp: number; ratio: number }> = []
 
-// GET /api/status — aggregated dashboard data
+// GET /api/status - aggregated dashboard data
 app.get('/api/status', async (_req, res) => {
   try {
     // Check if override is active and not expired
@@ -259,7 +259,7 @@ app.get('/api/status', async (_req, res) => {
   }
 })
 
-// POST /api/agent-activity — agent reports actions and metrics here
+// POST /api/agent-activity - agent reports actions and metrics here
 app.post('/api/agent-activity', async (req, res) => {
   try {
     const { action, details, metrics, recovery, timestamp } = req.body
@@ -310,7 +310,7 @@ app.post('/api/agent-activity', async (req, res) => {
   }
 })
 
-// GET /api/recoveries — recovery history with pagination
+// GET /api/recoveries - recovery history with pagination
 app.get('/api/recoveries', (req, res) => {
   const limit = Math.min(Number(req.query.limit) || 10, 100)
   const offset = Number(req.query.offset) || 0
@@ -853,14 +853,14 @@ app.post('/api/simulate-failure', async (_req, res) => {
   }
 })
 
-// POST /api/reset — clear simulation overrides and restore normal state
+// POST /api/reset - clear simulation overrides and restore normal state
 app.post('/api/reset', (_req, res) => {
   overrideReserves = null
   overrideAttestation = null
   res.json({ ok: true })
 })
 
-// POST /api/toggle-reserves — proxy to mock API toggle endpoint
+// POST /api/toggle-reserves - proxy to mock API toggle endpoint
 app.post('/api/toggle-reserves', async (_req, res) => {
   try {
     const apiRes = await fetch(`${API_URL}/toggle`, { method: 'POST' })

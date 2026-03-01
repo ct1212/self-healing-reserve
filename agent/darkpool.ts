@@ -1,7 +1,7 @@
 import type { AgentConfig } from './config'
 
 /**
- * Dark Pool Recovery Module — CCC (Chainlink Confidential Compute) Integration
+ * Dark Pool Recovery Module: CCC (Chainlink Confidential Compute) Integration
  *
  * End-to-end confidential recovery using CCC private token transfers.
  * Key advantages:
@@ -69,7 +69,7 @@ export async function executeDarkPoolRecovery(
 
   try {
     // SIMULATION: In production, this encrypts under the CCC master public key.
-    // Threshold encryption means no single Vault DON node can decrypt — only a
+    // Threshold encryption means no single Vault DON node can decrypt. Only a
     // CCC compute enclave receiving re-encrypted key shares from the quorum.
     const encryptedRequest = await simulateCCCThresholdEncryption(deficitAmount);
 
@@ -148,7 +148,7 @@ export async function executeDarkPoolRecovery(
         cccAttestation: fillResult.attestation.slice(0, 30) + '...',
         matchedMakers: 3,  // Number of MMs (identities hidden in enclave)
         settlement: 'CCC Private Token Transfer',
-        // Enclave debited market makers, credited reserve — all inside TEE
+        // Enclave debited market makers, credited reserve, all inside TEE
         // Updated balance table re-encrypted, no plaintext ever leaves
       }
     });
@@ -189,10 +189,10 @@ export async function executeDarkPoolRecovery(
         txHash: '0x' + Math.random().toString(16).slice(2, 42),
         onChainData: 'Encrypted balance hash + boolean + CCC attestation',
         // Public: recovery succeeded (boolean) + balance hash
-        // Private: amounts, counterparties, fill prices — NEVER on-chain
+        // Private: amounts, counterparties, fill prices (NEVER on-chain)
       }
     });
-    console.log('[darkpool] CCC settlement written on-chain — only encrypted state + boolean');
+    console.log('[darkpool] CCC settlement written on-chain. Only encrypted state + boolean visible.');
 
   } catch (err) {
     steps.push({
@@ -204,7 +204,7 @@ export async function executeDarkPoolRecovery(
     return { success: false, mechanism: 'darkpool', steps, durationMs: Date.now() - startTime, confidential: true };
   }
 
-  console.log('[darkpool] Dark pool recovery complete — end-to-end confidential via CCC');
+  console.log('[darkpool] Dark pool recovery complete. End-to-end confidential via CCC.');
 
   return {
     success: true,
@@ -282,7 +282,7 @@ async function simulateCCCEnclaveMatch(requestId: string): Promise<{attestation:
 }
 
 /**
- * SIMULATED: CCC settlement — enclave re-encrypts updated balance table and returns
+ * SIMULATED: CCC settlement. Enclave re-encrypts updated balance table and returns
  * only encrypted state + boolean + hash + quorum-signed attestation.
  * Production: The Workflow DON verifies the enclave's attestation, quorum-signs
  * the result, and returns it to the on-chain contract.

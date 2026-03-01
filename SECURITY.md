@@ -29,16 +29,16 @@ This document explains the security model of the Self-Healing Reserve system, di
                         └────────────────────┘
 ```
 
-**Key principle:** This system is an **alternative** to transparent Proof of Reserve, not a layer on top of it. Reserve balances flow from the custodian's private API directly into the CRE TEE — they never touch a public feed. Only a boolean `isSolvent` attestation is published on-chain. For dark pool recovery, CCC private token transfers ensure that settlement amounts, counterparties, and transfer details also remain confidential — on-chain state contains only an encrypted balance hash + boolean + quorum-signed CCC attestation.
+**Key principle:** This system is an **alternative** to transparent Proof of Reserve, not a layer on top of it. Reserve balances flow from the custodian's private API directly into the CRE TEE. They never touch a public feed. Only a boolean `isSolvent` attestation is published on-chain. For dark pool recovery, CCC private token transfers ensure that settlement amounts, counterparties, and transfer details also remain confidential. On-chain state contains only an encrypted balance hash + boolean + quorum-signed CCC attestation.
 
 ## What Runs in the TEE (Production)
 
 In a production deployment using Chainlink CRE (Compute Runtime Environment):
 
-- **ConfidentialHTTP** fetches reserve data from the custodian API. The HTTP request and response are encrypted end-to-end — only visible inside the TEE enclave.
+- **ConfidentialHTTP** fetches reserve data from the custodian API. The HTTP request and response are encrypted end-to-end and only visible inside the TEE enclave.
 - **Secret API keys** are stored in the DON vault, referenced via `{{.SECRET_HEADER}}` template syntax. Keys are never present in source code or workflow configuration.
 - **Reserve comparison** (`totalReserve / totalLiabilities >= threshold`) executes entirely inside the enclave. No DON node operator can observe the intermediate values.
-- **Consensus** uses `consensusIdenticalAggregation` — multiple DON nodes independently compute the same result inside their respective TEEs and reach agreement.
+- **Consensus** uses `consensusIdenticalAggregation` where multiple DON nodes independently compute the same result inside their respective TEEs and reach agreement.
 - **Output:** Only the boolean `isSolvent` result leaves the TEE, encoded into an on-chain transaction via `onReport()`.
 
 ## What's Simulated in the Demo
@@ -48,7 +48,7 @@ The demo (`npm run demo`) replicates the full architecture locally without a rea
 - **`demo/simulate-workflow.ts`** performs the same fetch-compare-attest logic that the CRE workflow would, but runs as a regular Node.js process. There is no enclave isolation.
 - **Hardhat node** uses the well-known test mnemonic (`test test test ... junk`). These are deterministic test accounts with no real value.
 - **Mock API** (`mock-api/server.ts`) runs on `localhost:3001` with no authentication. In production, the API would require credentials stored in the DON vault.
-- **Recovery agent** runs in dry-run mode — wallet commands are logged but never executed. No real funds are involved.
+- **Recovery agent** runs in dry-run mode. Wallet commands are logged but never executed. No real funds are involved.
 
 ## Demo vs Production Comparison
 
@@ -72,12 +72,12 @@ The demo (`npm run demo`) replicates the full architecture locally without a rea
 The recovery agent uses an MPC wallet for wallet operations:
 
 - **Dry-run mode** is the default. All wallet commands are logged but not executed. This is always enabled in the demo.
-- **MPC custody** — in production, the wallet uses Multi-Party Computation so no raw private keys are ever exposed to the agent process.
-- **Constrained actions** — the agent only executes three predefined recovery steps:
-  1. `balance` — check available funds
-  2. `trade` — swap ETH to USDC
-  3. `send` — transfer USDC to the reserve address
-- **No arbitrary execution** — the agent does not accept or execute arbitrary commands. Recovery logic is hardcoded in `agent/recovery.ts`.
+- **MPC custody**: in production, the wallet uses Multi-Party Computation so no raw private keys are ever exposed to the agent process.
+- **Constrained actions**: the agent only executes three predefined recovery steps:
+  1. `balance`: check available funds
+  2. `trade`: swap ETH to USDC
+  3. `send`: transfer USDC to the reserve address
+- **No arbitrary execution**: the agent does not accept or execute arbitrary commands. Recovery logic is hardcoded in `agent/recovery.ts`.
 
 ## CCC Security Model (Dark Pool Settlement)
 
@@ -85,7 +85,7 @@ The dark pool settlement uses Chainlink Confidential Compute (CCC), which provid
 
 ### Threshold Encryption
 - Deficit amounts are encrypted under the CCC **master public key**, which is threshold-shared across the Vault DON
-- **No single Vault DON node** can decrypt the data — a quorum of nodes must cooperate to provide re-encrypted key shares to the assigned compute enclave
+- **No single Vault DON node** can decrypt the data. A quorum of nodes must cooperate to provide re-encrypted key shares to the assigned compute enclave
 - Even if individual Vault DON nodes are compromised, the encrypted data remains secure as long as the threshold is maintained
 
 ### Vault DON (Decryption Nodes)
@@ -102,7 +102,7 @@ The dark pool settlement uses Chainlink Confidential Compute (CCC), which provid
 
 ### Private Token Transfers
 - CCC private token transfers use an **account-based** model (more efficient than UTXO-based privacy)
-- The contract stores an **encrypted balance table** — balances encrypted under the CCC master public key
+- The contract stores an **encrypted balance table** with balances encrypted under the CCC master public key
 - Transfers happen entirely inside the CCC enclave: decrypt balances → apply debits/credits → re-encrypt
 - On-chain, only the encrypted balance table blob and a hash are stored
 - No plaintext amounts, sender/receiver identities, or transfer details are ever visible on-chain
@@ -132,23 +132,23 @@ The move from single-TEE encryption (CRE alone) to CCC threshold encryption fund
 
 | Threat | Single-TEE (CRE only) | Threshold Encryption (CCC) |
 |---|---|---|
-| Compromised enclave | Attacker sees all data processed by that enclave | Attacker sees only data assigned to that enclave after compromise — master key is never present |
-| Compromised DON node | Node operator could observe inputs/outputs | Node holds only a key share — cannot decrypt alone. Quorum required. |
+| Compromised enclave | Attacker sees all data processed by that enclave | Attacker sees only data assigned to that enclave after compromise. Master key is never present |
+| Compromised DON node | Node operator could observe inputs/outputs | Node holds only a key share and cannot decrypt alone. Quorum required. |
 | Key extraction | Single enclave key is the single point of failure | Master secret key is never reconstructed. Vault DON re-encrypts via threshold shares. |
 | Key rotation | Must re-deploy enclave | Proactive secret sharing rotates key shares without changing the master public key |
 
-**The key property:** Compromising a single compute enclave only leaks data for requests assigned to it after compromise. The CCC master decryption key is never held by any single node — it exists only as threshold shares across the Vault DON. An attacker would need to simultaneously compromise a quorum of Vault DON nodes to reconstruct it.
+**The key property:** Compromising a single compute enclave only leaks data for requests assigned to it after compromise. The CCC master decryption key is never held by any single node. It exists only as threshold shares across the Vault DON. An attacker would need to simultaneously compromise a quorum of Vault DON nodes to reconstruct it.
 
 ### CCC-Specific Considerations
 
 - **Enclave assignment**: The Workflow DON assigns compute enclaves from a pool. An attacker who compromises one enclave cannot predict which future requests will be routed to it, limiting the blast radius.
-- **Attestation verification**: The Workflow DON quorum-signs CCC results before they reach the chain. A compromised enclave producing incorrect results would fail attestation verification — the quorum acts as a second line of defense.
+- **Attestation verification**: The Workflow DON quorum-signs CCC results before they reach the chain. A compromised enclave producing incorrect results would fail attestation verification. The quorum acts as a second line of defense.
 - **Encrypted state on-chain**: The CREDarkPool contract stores only encrypted balance table blobs. Even with full chain access, an observer cannot determine individual market maker balances, order sizes, or transfer amounts.
-- **Graceful failure privacy**: When the dark pool fails (insufficient liquidity), the failure is reported without revealing the order size or the pool's total capacity. An observer learns only that a recovery was attempted and failed — not why or how large the gap was.
+- **Graceful failure privacy**: When the dark pool fails (insufficient liquidity), the failure is reported without revealing the order size or the pool's total capacity. An observer learns only that a recovery was attempted and failed, not why or how large the gap was.
 
 ### Demo-Specific Considerations
 
 - **Mock API manipulation**: In the demo, anyone on localhost can call `/toggle` or `/set-reserves` to change the reported reserve state. In production, the custodian API is authenticated and the TEE prevents MITM attacks on the data path.
 - **Contract ownership**: The `ReserveAttestation` contract restricts `updateAttestation()` to the deployer. In production, only the DON's `onReport()` callback can update the attestation.
-- **Agent autonomy**: The agent acts only on verified on-chain events (not on API data directly). An undercollateralized API response alone does not trigger recovery — it must first be attested on-chain by the CRE workflow.
+- **Agent autonomy**: The agent acts only on verified on-chain events (not on API data directly). An undercollateralized API response alone does not trigger recovery. It must first be attested on-chain by the CRE workflow.
 - **Simulated CCC operations**: In the demo, CCC threshold encryption and private token transfers are simulated with the correct interfaces but without real cryptographic operations. The security properties described above apply only to production CCC deployments.

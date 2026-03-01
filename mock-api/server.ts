@@ -12,7 +12,7 @@ function isSolvent() {
   return state.totalReserve >= state.totalLiabilities
 }
 
-// GET /reserves — returns current reserve status
+// GET /reserves - returns current reserve status
 app.get('/reserves', (_req, res) => {
   res.json({
     totalReserve: state.totalReserve,
@@ -21,7 +21,7 @@ app.get('/reserves', (_req, res) => {
   })
 })
 
-// POST /toggle — flip between solvent/undercollateralized
+// POST /toggle - flip between solvent/undercollateralized
 app.post('/toggle', (_req, res) => {
   if (isSolvent()) {
     // Make undercollateralized
@@ -39,7 +39,7 @@ app.post('/toggle', (_req, res) => {
   })
 })
 
-// POST /set-reserves — set exact values
+// POST /set-reserves - set exact values
 app.post('/set-reserves', (req, res) => {
   const { totalReserve, totalLiabilities } = req.body
   if (typeof totalReserve === 'number') state.totalReserve = totalReserve
@@ -51,7 +51,7 @@ app.post('/set-reserves', (req, res) => {
   })
 })
 
-// GET /state — raw state for debugging
+// GET /state - raw state for debugging
 app.get('/state', (_req, res) => {
   res.json({ ...state, isSolvent: isSolvent() })
 })

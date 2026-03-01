@@ -18,13 +18,13 @@ export interface RecoveryResult {
 }
 
 export async function executeRecovery(config: AgentConfig, deficitAmount?: string): Promise<RecoveryResult> {
-  console.log('[recovery] Reserve undercollateralized — initiating recovery...')
+  console.log('[recovery] Reserve undercollateralized. Initiating recovery...')
 
   // Choose mechanism based on deficit size
   const useDarkPool = deficitAmount && parseFloat(deficitAmount) > 50_000_000; // >$50M use dark pool
   
   if (useDarkPool) {
-    console.log('[recovery] Large deficit detected — using confidential dark pool...')
+    console.log('[recovery] Large deficit detected. Using confidential dark pool...')
     console.log(compareMechanisms())
     
     const result = await executeDarkPoolRecovery(deficitAmount!, config)

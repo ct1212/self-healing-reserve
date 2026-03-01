@@ -82,7 +82,7 @@ export async function deployContract(rpcUrl = 'http://127.0.0.1:8545'): Promise<
   const receipt = await publicClient.waitForTransactionReceipt({ hash })
 
   if (!receipt.contractAddress) {
-    throw new Error('Deployment failed — no contract address in receipt')
+    throw new Error('Deployment failed: no contract address in receipt')
   }
 
   console.log(`[deploy] Contract deployed at: ${receipt.contractAddress}`)

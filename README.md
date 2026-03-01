@@ -1,6 +1,6 @@
 # CRE Powered Self-Healing Reserve
 
-**A confidential alternative to transparent Proof of Reserve.** Reserve balances flow from the custodian's private API directly into a Chainlink CRE Trusted Execution Environment — they never touch a public feed. The TEE verifies solvency and publishes only a boolean attestation on-chain. When undercollateralization is detected, an AI agent autonomously recovers — via direct Uniswap swaps for small deficits, or confidential dark pool execution with CCC private token transfers for large ones. No human intervention required.
+**A confidential alternative to transparent Proof of Reserve.** Reserve balances flow from the custodian's private API directly into a Chainlink CRE Trusted Execution Environment. They never touch a public feed. The TEE verifies solvency and publishes only a boolean attestation on-chain. When undercollateralization is detected, an AI agent autonomously recovers, whether via direct Uniswap swaps for small deficits or confidential dark pool execution with CCC private token transfers for large ones. No human intervention required.
 
 **[Live Demo](https://self-healing-reserve.vercel.app)** | Built for **Chainlink Convergence Hackathon 2026**
 
@@ -8,12 +8,12 @@
 
 ## The Problem
 
-Proof-of-reserve systems today are transparent by design. That's good for trust — but dangerous during a crisis:
+Proof-of-reserve systems today are transparent by design. That's good for trust, but dangerous during a crisis:
 
-1. **A reserve dips to 98%** — Chainlink PoR reports this publicly
+1. **A reserve dips to 98%.** Chainlink PoR reports this publicly
 2. **Arbitrageurs front-run** the rebalancing trade, driving up costs
-3. **The market interprets the deficit as distress** — panic begins before any recovery can execute
-4. **Large rebalancing orders on DEXs signal the exact deficit size** — MEV bots extract value
+3. **The market interprets the deficit as distress.** Panic begins before any recovery can execute
+4. **Large rebalancing orders on DEXs signal the exact deficit size.** MEV bots extract value
 
 The reserve manager is stuck: they need to fix the problem, but the act of fixing it makes it worse.
 
@@ -21,9 +21,9 @@ The reserve manager is stuck: they need to fix the problem, but the act of fixin
 
 Existing Chainlink Proof of Reserve feeds publish exact reserve ratios on a public chain. Under normal conditions, this transparency builds trust. But during a crisis, it becomes the attack surface.
 
-When a reserve drops below 100%, the exact shortfall is immediately visible. Competitors see the deficit. Traders front-run the recovery. MEV bots extract value from every rebalancing swap. The market reads the ratio as a distress signal and panic selling begins — all before the reserve manager can fix the problem.
+When a reserve drops below 100%, the exact shortfall is immediately visible. Competitors see the deficit. Traders front-run the recovery. MEV bots extract value from every rebalancing swap. The market reads the ratio as a distress signal and panic selling begins, all before the reserve manager can fix the problem.
 
-This project proposes an **alternative architecture** for Proof of Reserve — designed for assets where crisis resilience matters more than public ratio granularity. In production, the custodian's reserve API feeds directly into the CRE TEE. No public feed is ever involved. The live demo uses real Chainlink wBTC PoR data as a realistic simulation anchor, but in a production deployment, that data path would be entirely private.
+This project proposes an **alternative architecture** for Proof of Reserve, designed for assets where crisis resilience matters more than public ratio granularity. In production, the custodian's reserve API feeds directly into the CRE TEE. No public feed is ever involved. The live demo uses real Chainlink wBTC PoR data as a realistic simulation anchor, but in a production deployment, that data path would be entirely private.
 
 The tradeoff is explicit: less granularity for the public (boolean instead of ratio), but the same trustless verification (TEE attestation), with dramatically better crisis resilience.
 
@@ -51,11 +51,11 @@ Custodian API ──▶ CRE Workflow (inside TEE) ──▶ On-chain: isSolvent 
 
 Without CRE and CCC, proof-of-reserve is a tradeoff between transparency and stability. With them:
 
-- **Verification is trustless** — the TEE ensures the comparison is honest, even though the inputs are hidden
-- **Recovery is private** — no one knows how much is being rebalanced, or through which venue
-- **Settlement is confidential** — CCC private token transfers mean the actual wBTC movements are encrypted on-chain, not just the computation
-- **Market impact is zero** — competitors, traders, and MEV bots can't front-run what they can't see
-- **Confidence is maintained** — the public sees "solvent" or "insolvent" without the noise of partial ratios
+- **Verification is trustless.** The TEE ensures the comparison is honest, even though the inputs are hidden
+- **Recovery is private.** No one knows how much is being rebalanced, or through which venue
+- **Settlement is confidential.** CCC private token transfers mean the actual wBTC movements are encrypted on-chain, not just the computation
+- **Market impact is zero.** Competitors, traders, and MEV bots can't front-run what they can't see
+- **Confidence is maintained.** The public sees "solvent" or "insolvent" without the noise of partial ratios
 
 ## Dual Recovery: Direct Swap vs CCC Confidential Dark Pool
 
@@ -68,7 +68,7 @@ The agent intelligently selects the optimal recovery method based on deficit siz
 
 ### Why two mechanisms?
 
-A $500K deficit can be swapped on Uniswap without moving the market — just do it fast. But a $50M+ deficit on a DEX would crater the price, signal distress, and attract MEV. For large deficits, the dark pool matches with institutional market makers inside a CCC compute enclave. No one sees the order size, the counterparties, or the fill price. Token transfers happen via CCC private token transfers — balances are stored encrypted and updated inside the enclave. Only an encrypted balance hash and a boolean success flag reach the chain.
+A $500K deficit can be swapped on Uniswap without moving the market, so just do it fast. But a $50M+ deficit on a DEX would crater the price, signal distress, and attract MEV. For large deficits, the dark pool matches with institutional market makers inside a CCC compute enclave. No one sees the order size, the counterparties, or the fill price. Token transfers happen via CCC private token transfers where balances are stored encrypted and updated inside the enclave. Only an encrypted balance hash and a boolean success flag reach the chain.
 
 ### Dark Pool Architecture (CCC-based)
 
@@ -95,23 +95,23 @@ On-chain: encrypted balance hash + boolean success + CCC attestation
     PRIVATE: How much, from whom, at what price, which balances changed
 ```
 
-Key difference from the previous architecture: the encryption uses CCC **threshold encryption** via the Vault DON, not a single TEE public key. The master decryption key is secret-shared across decryption nodes — no single node can ever decrypt alone. This means even if a single enclave or node is compromised, the private data remains secure.
+Key difference from the previous architecture: the encryption uses CCC **threshold encryption** via the Vault DON, not a single TEE public key. The master decryption key is secret-shared across decryption nodes. No single node can ever decrypt alone. This means even if a single enclave or node is compromised, the private data remains secure.
 
 ### Dark Pool Liquidity: How Capital Is Ready When Needed
 
-The dark pool only works if there's liquidity sitting on the other side of the trade when a crisis hits. This doesn't happen by accident — institutional market makers pre-commit capital into the CREDarkPool contract ahead of time:
+The dark pool only works if there's liquidity sitting on the other side of the trade when a crisis hits. This doesn't happen by accident. Institutional market makers pre-commit capital into the CREDarkPool contract ahead of time:
 
-1. **Market makers deposit wBTC (or USDC) into the dark pool** — these are institutional desks (OTC firms, large funds, custodians) who earn a premium for providing standby liquidity. Think of it like an insurance float: capital sits idle most of the time, but earns yield for being available.
+1. **Market makers deposit wBTC (or USDC) into the dark pool**. These are institutional desks (OTC firms, large funds, custodians) who earn a premium for providing standby liquidity. Think of it like an insurance float: capital sits idle most of the time, but earns yield for being available.
 
-2. **Commitments are encrypted and private** — thanks to CCC threshold encryption, no market maker knows the total pool depth, and no one outside the CCC enclave knows who has committed or how much. This prevents front-running of the pool itself.
+2. **Commitments are encrypted and private.** Thanks to CCC threshold encryption, no market maker knows the total pool depth, and no one outside the CCC enclave knows who has committed or how much. This prevents front-running of the pool itself.
 
-3. **When a deficit occurs, the CCC enclave pairs the recovery order against committed liquidity** — it fills the order across multiple market makers, splitting the size so no single counterparty sees the full deficit. Each fill is at a fair price (TWAP ± basis points), verified inside the enclave. Token transfers are applied to the encrypted balance table and re-encrypted before leaving the enclave.
+3. **When a deficit occurs, the CCC enclave pairs the recovery order against committed liquidity** and fills the order across multiple market makers, splitting the size so no single counterparty sees the full deficit. Each fill is at a fair price (TWAP ± basis points), verified inside the enclave. Token transfers are applied to the encrypted balance table and re-encrypted before leaving the enclave.
 
-4. **Market makers are incentivized** — they earn a spread on every fill (negotiated at commitment time), plus they get priority access to large OTC flow they'd never see on public DEXs. For institutional desks, this is attractive deal flow, not charity.
+4. **Market makers are incentivized.** They earn a spread on every fill (negotiated at commitment time), plus they get priority access to large OTC flow they'd never see on public DEXs. For institutional desks, this is attractive deal flow, not charity.
 
-5. **If liquidity is insufficient, the dark pool fails gracefully** — the CCC enclave times out, and the system reports the failure without revealing the order size or the pool's capacity. The reserve stays undercollateralized until manual intervention or a retry with different parameters. This is demonstrated in the "Dark Pool Failure" simulation.
+5. **If liquidity is insufficient, the dark pool fails gracefully**. The CCC enclave times out, and the system reports the failure without revealing the order size or the pool's capacity. The reserve stays undercollateralized until manual intervention or a retry with different parameters. This is demonstrated in the "Dark Pool Failure" simulation.
 
-The key tradeoff: the dark pool requires pre-positioned capital, which means ongoing relationships with institutional liquidity providers. In exchange, when a crisis hits, recovery executes in seconds with zero market visibility — no front-running, no panic, no MEV extraction.
+The key tradeoff: the dark pool requires pre-positioned capital, which means ongoing relationships with institutional liquidity providers. In exchange, when a crisis hits, recovery executes in seconds with zero market visibility: no front-running, no panic, no MEV extraction.
 
 ## Recovery Mechanism Comparison
 
@@ -125,17 +125,17 @@ The key tradeoff: the dark pool requires pre-positioned capital, which means ong
 | **Amount Privacy** | Exposed On-Chain | CCC Threshold Encrypted |
 | **Token Transfer Privacy** | None (Public ERC-20 Transfers) | Full (CCC Private Token Transfer) |
 | **Speed** | ~300ms | ~2.2s |
-| **Complexity** | Low (3 steps) | High (4 steps + CCC) — fully automated |
+| **Complexity** | Low (3 steps) | High (4 steps + CCC), fully automated |
 
 ## Live Dashboard
 
-The **[live demo dashboard](https://self-healing-reserve.vercel.app)** uses real **Chainlink wBTC Proof of Reserve** data from Ethereum mainnet as a simulation anchor. In production, this data would flow from the custodian's private API directly into the CRE TEE — never via a public feed.
+The **[live demo dashboard](https://self-healing-reserve.vercel.app)** uses real **Chainlink wBTC Proof of Reserve** data from Ethereum mainnet as a simulation anchor. In production, this data would flow from the custodian's private API directly into the CRE TEE, never via a public feed.
 
 Three simulation scenarios demonstrate the system end-to-end:
 
 - **Small Deficit → Direct Swap**: Reserve drops to 99.9%. Agent swaps USDC → wBTC via Uniswap, restores to 100%. Remaining 5% buffer replenished via scheduled OTC.
-- **Large Deficit → CCC Dark Pool**: Reserve drops to 95%. Agent routes through CCC confidential dark pool — threshold-encrypted order, CCC enclave matching, private token settlement. Restored to 105%.
-- **Dark Pool Failure**: CCC enclave matching times out. System stays undercollateralized until manual intervention — demonstrates graceful failure handling.
+- **Large Deficit → CCC Dark Pool**: Reserve drops to 95%. Agent routes through CCC confidential dark pool with threshold-encrypted order, CCC enclave matching, private token settlement. Restored to 105%.
+- **Dark Pool Failure**: CCC enclave matching times out. System stays undercollateralized until manual intervention. Demonstrates graceful failure handling.
 
 Each scenario shows a live step-by-step execution panel with timing, status, and a comparison of what's public vs what stays private.
 
@@ -150,9 +150,9 @@ The demo starts a local Hardhat node, deploys contracts, and runs the dashboard 
 
 ## Smart Contracts
 
-**ReserveAttestation.sol** — On-chain boolean attestation. The CRE workflow calls `onReport()` to write `isSolvent`. The agent monitors `ReserveStatusUpdated(bool, uint256)` events.
+**ReserveAttestation.sol**: On-chain boolean attestation. The CRE workflow calls `onReport()` to write `isSolvent`. The agent monitors `ReserveStatusUpdated(bool, uint256)` events.
 
-**CREDarkPool.sol** — Confidential dark pool with CCC private token settlement. `requestCollateral()` accepts orders encrypted with the CCC master public key (threshold encryption). `confidentialFill()` settles with a CCC-attested encrypted balance table update — no plaintext amounts ever touch the chain. Runs in simulation mode pending full CCC General Access availability.
+**CREDarkPool.sol**: Confidential dark pool with CCC private token settlement. `requestCollateral()` accepts orders encrypted with the CCC master public key (threshold encryption). `confidentialFill()` settles with a CCC-attested encrypted balance table update. No plaintext amounts ever touch the chain. Runs in simulation mode pending full CCC General Access availability.
 
 ## CRE Workflow
 
@@ -161,7 +161,7 @@ The demo starts a local Hardhat node, deploys contracts, and runs the dashboard 
 1. `ConfidentialHTTPClient` fetches reserve data from the custodian's private API (encrypted end-to-end)
 2. Compares reserves vs liabilities **inside the TEE**
 3. `consensusIdenticalAggregation` across DON nodes
-4. Returns only `{isSolvent: boolean}` — balances never leave the enclave
+4. Returns only `{isSolvent: boolean}`. Balances never leave the enclave
 
 ## CCC Settlement Workflow
 
@@ -207,18 +207,18 @@ See [SECURITY.md](SECURITY.md) for the full security architecture, including wha
 
 The demo uses real Chainlink wBTC PoR data as a simulation anchor and simulates CCC operations with the correct interfaces. In production:
 
-- Reserve data flows from the custodian's private API into the CRE TEE — never via a public PoR feed
-- CCC threshold encryption replaces simulated encryption — the Vault DON manages the master key
-- Dark pool settlement uses real CCC private token transfers — encrypted balance tables, enclave attestation
+- Reserve data flows from the custodian's private API into the CRE TEE, never via a public PoR feed
+- CCC threshold encryption replaces simulated encryption. The Vault DON manages the master key
+- Dark pool settlement uses real CCC private token transfers with encrypted balance tables and enclave attestation
 - ZK proofs provide additional settlement verification (optional, layered on CCC attestation)
 
 ## Stack
 
-- **Chainlink CRE** — Chainlink Runtime Environment (TEE-based workflow orchestration)
-- **Chainlink Confidential Compute (CCC)** — Threshold encryption + private token transfers for dark pool settlement
-- **Chainlink Proof of Reserve** — Live wBTC PoR feed on Ethereum mainnet (simulation anchor)
-- **MPC wallet** — Autonomous agent wallet (no raw private keys)
-- **Solidity 0.8.19** — ReserveAttestation + CREDarkPool contracts
-- **TypeScript + viem** — All runtime code, Ethereum client
-- **Express** — Dashboard backend + mock API
-- **Hardhat** — Local EVM for demo
+- **Chainlink CRE**: Chainlink Runtime Environment (TEE-based workflow orchestration)
+- **Chainlink Confidential Compute (CCC)**: Threshold encryption + private token transfers for dark pool settlement
+- **Chainlink Proof of Reserve**: Live wBTC PoR feed on Ethereum mainnet (simulation anchor)
+- **MPC wallet**: Autonomous agent wallet (no raw private keys)
+- **Solidity 0.8.19**: ReserveAttestation + CREDarkPool contracts
+- **TypeScript + viem**: All runtime code, Ethereum client
+- **Express**: Dashboard backend + mock API
+- **Hardhat**: Local EVM for demo

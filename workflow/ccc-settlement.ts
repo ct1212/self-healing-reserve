@@ -111,7 +111,7 @@ async function cccEncrypt(plaintext: string): Promise<string> {
  */
 function computeBalanceHash(balanceTable: BalanceTable): string {
 	const serialized = JSON.stringify(balanceTable)
-	// Simple hash for simulation — production uses keccak256
+	// Simple hash for simulation. Production uses keccak256
 	let hash = 0
 	for (let i = 0; i < serialized.length; i++) {
 		const char = serialized.charCodeAt(i)
@@ -125,7 +125,7 @@ function computeBalanceHash(balanceTable: BalanceTable): string {
 
 /**
  * Match a recovery deficit against available market maker liquidity.
- * This runs ENTIRELY inside the CCC enclave — no external visibility.
+ * This runs ENTIRELY inside the CCC enclave. No external visibility.
  */
 function matchOrders(
 	deficitAmount: number,
@@ -183,7 +183,7 @@ function applyFills(balanceTable: BalanceTable, fills: Fill[]): BalanceTable {
 // ─── CCC Settlement Workflow Handler ─────────────────────────────────────────
 
 /**
- * Main settlement handler — triggered when CREDarkPool.sol receives a recovery request.
+ * Main settlement handler. Triggered when CREDarkPool.sol receives a recovery request.
  *
  * Inside the CCC enclave:
  * 1. Decrypt the recovery request amount (threshold-encrypted by agent)

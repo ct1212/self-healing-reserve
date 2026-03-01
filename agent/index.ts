@@ -94,7 +94,7 @@ async function main() {
         recovering = false
       }
     } else if (isSolvent) {
-      console.log('[agent] Reserves healthy — no action needed.')
+      console.log('[agent] Reserves healthy, no action needed.')
     }
   })
 

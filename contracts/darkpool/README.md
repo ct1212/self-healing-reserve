@@ -64,11 +64,11 @@ This integration enables **end-to-end confidential collateral recovery** where:
 ### 1. CCC Threshold Encrypted Amounts
 Amounts are encrypted with the CCC master public key (threshold-shared across Vault DON):
 ```solidity
-bytes32 encryptedAmount;  // CCC threshold encrypted — no single node can decrypt
+bytes32 encryptedAmount;  // CCC threshold encrypted, no single node can decrypt
 ```
 
 ### 2. CCC Encrypted Balance Table
-Market maker liquidity stored as an encrypted blob — all balance operations happen inside the CCC enclave:
+Market maker liquidity stored as an encrypted blob. All balance operations happen inside the CCC enclave:
 ```solidity
 struct EncryptedBalanceTable {
     bytes encryptedData;    // Opaque blob (CCC master key encrypted)
@@ -106,7 +106,7 @@ function cccSettle(
 
 ```typescript
 // 1. Encrypt deficit amount with CCC master public key (threshold encryption)
-// No single Vault DON node can decrypt — only a CCC compute enclave can
+// No single Vault DON node can decrypt. Only a CCC compute enclave can
 const encryptedAmount = await cccThresholdEncrypt(deficitAmount);
 
 // 2. Generate shielded address
@@ -133,7 +133,7 @@ const depositId = await darkPool.depositLiquidity(encryptedDeposit);
 ### CCC Settlement (Automated by CCC Enclave)
 
 ```typescript
-// This is called by the CCC enclave after processing — not by users directly.
+// This is called by the CCC enclave after processing, not by users directly.
 // The enclave has:
 //   1. Decrypted deficit + market maker balances
 //   2. Matched orders and applied private token transfers
@@ -196,7 +196,7 @@ npx ts-node DarkPoolPrivateTransactions.ts
 
 ## Security Considerations
 
-1. **Threshold Encryption**: CCC master public key is threshold-shared — no single node can decrypt
+1. **Threshold Encryption**: CCC master public key is threshold-shared. No single node can decrypt
 2. **Vault DON Quorum**: Re-encryption requires quorum of Vault DON nodes, protecting against individual node compromise
 3. **Enclave Attestation**: CCC enclave produces TEE attestation, verified by Workflow DON before quorum-signing
 4. **Replay Protection**: Settlement results indexed by request ID, tickets are one-time use
