@@ -23,7 +23,7 @@ Existing Chainlink Proof of Reserve feeds publish exact reserve ratios on a publ
 
 When a reserve drops below 100%, the exact shortfall is immediately visible. Competitors see the deficit. Traders front-run the recovery. MEV bots extract value from every rebalancing swap. The market reads the ratio as a distress signal and panic selling begins — all before the reserve manager can fix the problem.
 
-This project proposes a **replacement architecture** for Proof of Reserve, not a layer on top of the existing transparent model. In production, the custodian's reserve API feeds directly into the CRE TEE. No public feed is ever involved. The live demo uses real Chainlink wBTC PoR data as a realistic simulation anchor, but in a production deployment, that data path would be entirely private.
+This project proposes an **alternative architecture** for Proof of Reserve — designed for assets where crisis resilience matters more than public ratio granularity. In production, the custodian's reserve API feeds directly into the CRE TEE. No public feed is ever involved. The live demo uses real Chainlink wBTC PoR data as a realistic simulation anchor, but in a production deployment, that data path would be entirely private.
 
 The tradeoff is explicit: less granularity for the public (boolean instead of ratio), but the same trustless verification (TEE attestation), with dramatically better crisis resilience.
 
