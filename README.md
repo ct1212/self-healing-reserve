@@ -19,6 +19,14 @@ Proof-of-reserve systems today are transparent by design. That's good for trust 
 
 The reserve manager is stuck: they need to fix the problem, but the act of fixing it makes it worse.
 
+### "But aren't reserves already public on-chain?"
+
+Yes — and that's the point. Today's Proof of Reserve feeds (like Chainlink's wBTC PoR) publish exact reserve ratios on-chain for anyone to read. This project is **not** a layer on top of transparent PoR. It's a **proposed alternative PoR architecture** where confidentiality is built in from the start.
+
+In production, the reserve operator would feed balance data directly into the CRE TEE via a private API — it would never hit a public feed. The TEE verifies solvency and publishes only a boolean. The existing transparent PoR model and this confidential model are mutually exclusive designs: you choose one or the other.
+
+The live demo uses the real wBTC PoR feed as a simulation anchor (because it's publicly available real data), but the production architecture assumes the reserve data pipeline is confidential end-to-end.
+
 ## The Solution: Confidential Verification + Autonomous Recovery
 
 Self-Healing Reserve keeps reserve balances confidential while still providing trustless on-chain proof of solvency.
@@ -111,7 +119,7 @@ The key tradeoff: the dark pool requires pre-positioned capital, which means ong
 
 ## Live Dashboard
 
-The **[live demo dashboard](https://self-healing-reserve.vercel.app)** uses real **Chainlink wBTC Proof of Reserve** data from Ethereum mainnet.
+The **[live demo dashboard](https://self-healing-reserve.vercel.app)** uses real **Chainlink wBTC Proof of Reserve** data from Ethereum mainnet as a simulation anchor — the real feed provides realistic reserve numbers, but in production, this data would flow through a private API directly into the CRE TEE and never touch a public feed.
 
 Three simulation scenarios demonstrate the system end-to-end:
 
@@ -162,7 +170,7 @@ See [SECURITY.md](./SECURITY.md) for the full security architecture, including w
 
 - **Chainlink CRE** — Chainlink Runtime Environment (TEE-based verification + workflow orchestration)
 - **Chainlink Confidential Compute (CCC)** — Private token transfers for dark pool settlement (threshold encryption, Vault DON, compute enclaves)
-- **Chainlink Proof of Reserve** — live wBTC PoR feed on Ethereum mainnet
+- **Chainlink Proof of Reserve** — live wBTC PoR feed on Ethereum mainnet (used as simulation data source; production replaces this with a private reserve API)
 - **MPC wallet** — autonomous agent wallet (no raw private keys)
 - **Solidity 0.8.19** — ReserveAttestation + CREDarkPool contracts
 - **TypeScript + viem** — all runtime code, Ethereum client

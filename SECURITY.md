@@ -29,7 +29,7 @@ This document explains the security model of the Self-Healing Reserve system, di
                         └────────────────────┘
 ```
 
-**Key principle:** Exact reserve balances are confidential. Only a boolean `isSolvent` attestation is published on-chain. For dark pool recovery, CCC private token transfers ensure that settlement amounts, counterparties, and transfer details also remain confidential — on-chain state contains only an encrypted balance hash + boolean + quorum-signed CCC attestation.
+**Key principle:** This system is a **replacement** for transparent Proof of Reserve, not a layer on top of it. Reserve balances flow from the custodian's private API directly into the CRE TEE — they never touch a public feed. Only a boolean `isSolvent` attestation is published on-chain. For dark pool recovery, CCC private token transfers ensure that settlement amounts, counterparties, and transfer details also remain confidential — on-chain state contains only an encrypted balance hash + boolean + quorum-signed CCC attestation.
 
 ## What Runs in the TEE (Production)
 
@@ -54,6 +54,7 @@ The demo (`npm run demo`) replicates the full architecture locally without a rea
 
 | Component | Demo | Production |
 |---|---|---|
+| Reserve data source | Public wBTC PoR feed (simulation anchor) | Private custodian API (confidential end-to-end) |
 | Reserve data fetch | Plain HTTP to localhost mock | ConfidentialHTTP inside TEE |
 | API authentication | None | DON vault secret (`{{.SECRET_HEADER}}`) |
 | Reserve comparison | Local Node.js process | Inside TEE enclave |
