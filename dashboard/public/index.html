@@ -648,19 +648,103 @@
       margin-bottom: 4px;
     }
 
-    /* Dark Pool Explainer */
-    .mechanism-explainer {
+    /* Recovery Tabs */
+    .recovery-tabs {
       max-width: 1000px;
       margin: 0 auto 28px;
+      background: #12121a;
+      border: 1px solid #222;
       border-radius: 12px;
-      padding: 28px;
-      position: relative;
       overflow: hidden;
-      display: none;
     }
 
-    .mechanism-explainer.visible {
+    .recovery-tab-nav {
+      display: flex;
+      border-bottom: 1px solid #222;
+      background: #0e0e16;
+    }
+
+    .recovery-tab-btn {
+      flex: 1;
+      padding: 14px 16px;
+      font-size: 0.75rem;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: #555;
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+
+    .recovery-tab-btn:hover {
+      color: #888;
+      background: rgba(139, 139, 255, 0.03);
+    }
+
+    .recovery-tab-btn.active {
+      color: #8b8bff;
+      border-bottom-color: #8b8bff;
+    }
+
+    .recovery-tab-btn[data-tab="direct"].active {
+      color: #3b82f6;
+      border-bottom-color: #3b82f6;
+    }
+
+    .recovery-tab-btn[data-tab="darkpool"].active {
+      color: #8b8bff;
+      border-bottom-color: #8b8bff;
+    }
+
+    .recovery-tab-content {
+      display: none;
+      padding: 28px;
+    }
+
+    .recovery-tab-content.active {
       display: block;
+    }
+
+    /* Cover tab */
+    .tab-cover-intro {
+      text-align: center;
+      padding: 20px 0;
+    }
+
+    .tab-cover-intro h2 {
+      font-size: 0.95rem;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      margin-bottom: 12px;
+    }
+
+    .tab-cover-intro p {
+      color: #666;
+      font-size: 0.82rem;
+      line-height: 1.6;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      max-width: 600px;
+      margin: 0 auto 24px;
+    }
+
+    .tab-cover-cta {
+      color: #555;
+      font-size: 0.75rem;
+      font-style: italic;
+      margin-top: 16px;
+    }
+
+    /* Dark Pool Explainer */
+    .mechanism-explainer {
+      border-radius: 0;
+      padding: 0;
+      position: relative;
+      overflow: hidden;
     }
 
     .darkpool-explainer {
@@ -1641,117 +1725,22 @@
     </div>
   </div>
 
-  <!-- Direct Swap Explainer (shown after small deficit simulation) -->
-  <div class="mechanism-explainer directswap-explainer" id="directswap-explainer">
-    <h2>Direct Wallet Swap Recovery</h2>
-    <p class="ds-subtitle">For deficits under $50M, the agent executes a fast 3-step recovery using a direct on-chain swap via Uniswap &mdash; simple, fast, and fully transparent.</p>
-
-    <div class="ds-why">
-      <div class="ds-why-when">
-        <h3>When It&rsquo;s Used</h3>
-        <ul>
-          <li>Deficit is below the $50M threshold</li>
-          <li>Market impact from the swap is tolerable</li>
-          <li>Speed of recovery is the top priority</li>
-          <li>No confidentiality concerns at this scale</li>
-        </ul>
-      </div>
-      <div class="ds-why-how">
-        <h3>How It Works</h3>
-        <ul>
-          <li>Agent wallet USDC balance is checked on-chain</li>
-          <li>Swap routed through Uniswap V3 for best rate</li>
-          <li>Recovered wBTC sent directly to the reserve</li>
-          <li>Full transaction trail visible on Etherscan</li>
-        </ul>
-      </div>
+  <!-- Recovery Mechanism Tabs -->
+  <div class="recovery-tabs" id="recovery-tabs">
+    <div class="recovery-tab-nav" id="recovery-tab-nav">
+      <button class="recovery-tab-btn active" data-tab="cover">Recovery Mechanism</button>
+      <button class="recovery-tab-btn" data-tab="direct">Direct Wallet Swap</button>
+      <button class="recovery-tab-btn" data-tab="darkpool">CCC Dark Pool</button>
     </div>
 
-    <div class="ds-flow">
-      <div class="ds-flow-step">
-        <div class="ds-flow-icon">&#128179;</div>
-        <div class="ds-flow-label">Check Balance</div>
-        <div class="ds-flow-desc">Verify agent wallet has enough USDC to cover the deficit amount.</div>
-        <span class="ds-flow-privacy public">&#9888; Public</span>
+    <!-- Cover Tab (default) -->
+    <div class="recovery-tab-content active" id="tab-cover">
+      <div class="tab-cover-intro">
+        <h2>Dual Recovery Architecture</h2>
+        <p>When the CRE TEE detects undercollateralization, an autonomous agent selects the optimal recovery path based on deficit size. Small deficits swap directly on-chain; large deficits route through a confidential dark pool where no one sees the order size, counterparties, or fill price.</p>
+        <p class="tab-cover-cta">Trigger a simulation above to see the recovery pipeline in action.</p>
       </div>
-      <div class="ds-flow-arrow">&#10132;</div>
-      <div class="ds-flow-step">
-        <div class="ds-flow-icon">&#128260;</div>
-        <div class="ds-flow-label">DEX Swap</div>
-        <div class="ds-flow-desc">Swap USDC &rarr; wBTC on Uniswap V3 at market rate. Visible in the mempool.</div>
-        <span class="ds-flow-privacy public">&#9888; Public</span>
-      </div>
-      <div class="ds-flow-arrow">&#10132;</div>
-      <div class="ds-flow-step">
-        <div class="ds-flow-icon">&#9989;</div>
-        <div class="ds-flow-label">Send to Reserve</div>
-        <div class="ds-flow-desc">Transfer recovered wBTC back into the reserve fund to restore collateralization.</div>
-        <span class="ds-flow-privacy public">&#9888; Public</span>
-      </div>
-    </div>
-  </div>
 
-  <!-- Dark Pool Explainer (shown after large deficit simulation) -->
-  <div class="mechanism-explainer darkpool-explainer" id="darkpool-explainer">
-    <h2>CCC Confidential Dark Pool Recovery</h2>
-    <p class="dp-subtitle">When deficits exceed $50M, recovery routes through a confidential dark pool powered by <strong>Chainlink Confidential Compute (CCC)</strong> &mdash; end-to-end confidential from encryption through settlement.</p>
-
-    <div class="dp-why">
-      <div class="dp-why-problem">
-        <h3>The Problem: Public Recovery</h3>
-        <ul>
-          <li>Large swaps on Uniswap move the market</li>
-          <li>MEV bots front-run recovery transactions</li>
-          <li>Competitors see exact deficit amount on-chain</li>
-          <li>Token transfers reveal amounts and counterparties</li>
-        </ul>
-      </div>
-      <div class="dp-why-solution">
-        <h3>The Solution: CCC Private Token Transfers</h3>
-        <ul>
-          <li>Order amount CCC threshold-encrypted (no single node can decrypt)</li>
-          <li>Vault DON re-encrypts inputs for assigned CCC enclave</li>
-          <li>Settlement via CCC private token transfer inside enclave</li>
-          <li>On-chain: only encrypted balance hash + boolean + attestation</li>
-        </ul>
-      </div>
-    </div>
-
-    <div class="dp-flow">
-      <div class="dp-flow-step" id="dp-explain-1">
-        <span class="dp-flow-icon">&#128274;</span>
-        <div class="dp-flow-label">CCC Threshold Encrypt</div>
-        <div class="dp-flow-desc">Deficit amount encrypted with CCC master public key. Threshold-shared across Vault DON &mdash; no single node can decrypt.</div>
-        <span class="dp-flow-privacy private">&#128274; Threshold Encrypted</span>
-      </div>
-      <div class="dp-flow-arrow">&#10132;</div>
-      <div class="dp-flow-step" id="dp-explain-2">
-        <span class="dp-flow-icon">&#128225;</span>
-        <div class="dp-flow-label">Submit to Pool</div>
-        <div class="dp-flow-desc">Encrypted request submitted to CREDarkPool contract. Contract stores encrypted blob &mdash; never sees plaintext.</div>
-        <span class="dp-flow-privacy private">&#128274; Encrypted</span>
-      </div>
-      <div class="dp-flow-arrow">&#10132;</div>
-      <div class="dp-flow-step" id="dp-explain-3">
-        <span class="dp-flow-icon">&#128737;</span>
-        <div class="dp-flow-label">CCC Enclave Match + Transfer</div>
-        <div class="dp-flow-desc">Vault DON provides re-encrypted key shares. Enclave decrypts, matches orders, and settles via CCC private token transfer. Balances updated inside TEE.</div>
-        <span class="dp-flow-privacy private">&#128274; CCC Enclave</span>
-      </div>
-      <div class="dp-flow-arrow">&#10132;</div>
-      <div class="dp-flow-step" id="dp-explain-4">
-        <span class="dp-flow-icon">&#9989;</span>
-        <div class="dp-flow-label">CCC Attestation</div>
-        <div class="dp-flow-desc">Enclave re-encrypts updated balance table. On-chain receives only: encrypted balance hash + boolean &ldquo;recovery succeeded&rdquo; + quorum-signed CCC attestation.</div>
-        <span class="dp-flow-privacy public">&#10003; Quorum-Signed</span>
-      </div>
-    </div>
-  </div>
-
-  <!-- Mechanism Comparison -->
-  <div class="grid">
-    <div class="card full-width">
-      <h2>Recovery Mechanism Comparison</h2>
       <div class="mechanism-compare">
         <div class="mech-card direct-card">
           <h3>Direct Wallet Swap</h3>
@@ -1829,6 +1818,117 @@
           <div class="mech-attr">
             <span class="mech-attr-label">Complexity</span>
             <span class="mech-attr-value warn">High (4 steps + CCC)</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Direct Swap Tab -->
+    <div class="recovery-tab-content" id="tab-direct">
+      <div class="mechanism-explainer directswap-explainer" id="directswap-explainer">
+        <h2>Direct Wallet Swap Recovery</h2>
+        <p class="ds-subtitle">For deficits under $50M, the agent executes a fast 3-step recovery using a direct on-chain swap via Uniswap &mdash; simple, fast, and fully transparent.</p>
+
+        <div class="ds-why">
+          <div class="ds-why-when">
+            <h3>When It&rsquo;s Used</h3>
+            <ul>
+              <li>Deficit is below the $50M threshold</li>
+              <li>Market impact from the swap is tolerable</li>
+              <li>Speed of recovery is the top priority</li>
+              <li>No confidentiality concerns at this scale</li>
+            </ul>
+          </div>
+          <div class="ds-why-how">
+            <h3>How It Works</h3>
+            <ul>
+              <li>Agent wallet USDC balance is checked on-chain</li>
+              <li>Swap routed through Uniswap V3 for best rate</li>
+              <li>Recovered wBTC sent directly to the reserve</li>
+              <li>Full transaction trail visible on Etherscan</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="ds-flow">
+          <div class="ds-flow-step">
+            <div class="ds-flow-icon">&#128179;</div>
+            <div class="ds-flow-label">Check Balance</div>
+            <div class="ds-flow-desc">Verify agent wallet has enough USDC to cover the deficit amount.</div>
+            <span class="ds-flow-privacy public">&#9888; Public</span>
+          </div>
+          <div class="ds-flow-arrow">&#10132;</div>
+          <div class="ds-flow-step">
+            <div class="ds-flow-icon">&#128260;</div>
+            <div class="ds-flow-label">DEX Swap</div>
+            <div class="ds-flow-desc">Swap USDC &rarr; wBTC on Uniswap V3 at market rate. Visible in the mempool.</div>
+            <span class="ds-flow-privacy public">&#9888; Public</span>
+          </div>
+          <div class="ds-flow-arrow">&#10132;</div>
+          <div class="ds-flow-step">
+            <div class="ds-flow-icon">&#9989;</div>
+            <div class="ds-flow-label">Send to Reserve</div>
+            <div class="ds-flow-desc">Transfer recovered wBTC back into the reserve fund to restore collateralization.</div>
+            <span class="ds-flow-privacy public">&#9888; Public</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Dark Pool Tab -->
+    <div class="recovery-tab-content" id="tab-darkpool">
+      <div class="mechanism-explainer darkpool-explainer" id="darkpool-explainer">
+        <h2>CCC Confidential Dark Pool Recovery</h2>
+        <p class="dp-subtitle">When deficits exceed $50M, recovery routes through a confidential dark pool powered by <strong>Chainlink Confidential Compute (CCC)</strong> &mdash; end-to-end confidential from encryption through settlement.</p>
+
+        <div class="dp-why">
+          <div class="dp-why-problem">
+            <h3>The Problem: Public Recovery</h3>
+            <ul>
+              <li>Large swaps on Uniswap move the market</li>
+              <li>MEV bots front-run recovery transactions</li>
+              <li>Competitors see exact deficit amount on-chain</li>
+              <li>Token transfers reveal amounts and counterparties</li>
+            </ul>
+          </div>
+          <div class="dp-why-solution">
+            <h3>The Solution: CCC Private Token Transfers</h3>
+            <ul>
+              <li>Order amount CCC threshold-encrypted (no single node can decrypt)</li>
+              <li>Vault DON re-encrypts inputs for assigned CCC enclave</li>
+              <li>Settlement via CCC private token transfer inside enclave</li>
+              <li>On-chain: only encrypted balance hash + boolean + attestation</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="dp-flow">
+          <div class="dp-flow-step" id="dp-explain-1">
+            <span class="dp-flow-icon">&#128274;</span>
+            <div class="dp-flow-label">CCC Threshold Encrypt</div>
+            <div class="dp-flow-desc">Deficit amount encrypted with CCC master public key. Threshold-shared across Vault DON &mdash; no single node can decrypt.</div>
+            <span class="dp-flow-privacy private">&#128274; Threshold Encrypted</span>
+          </div>
+          <div class="dp-flow-arrow">&#10132;</div>
+          <div class="dp-flow-step" id="dp-explain-2">
+            <span class="dp-flow-icon">&#128225;</span>
+            <div class="dp-flow-label">Submit to Pool</div>
+            <div class="dp-flow-desc">Encrypted request submitted to CREDarkPool contract. Contract stores encrypted blob &mdash; never sees plaintext.</div>
+            <span class="dp-flow-privacy private">&#128274; Encrypted</span>
+          </div>
+          <div class="dp-flow-arrow">&#10132;</div>
+          <div class="dp-flow-step" id="dp-explain-3">
+            <span class="dp-flow-icon">&#128737;</span>
+            <div class="dp-flow-label">CCC Enclave Match + Transfer</div>
+            <div class="dp-flow-desc">Vault DON provides re-encrypted key shares. Enclave decrypts, matches orders, and settles via CCC private token transfer. Balances updated inside TEE.</div>
+            <span class="dp-flow-privacy private">&#128274; CCC Enclave</span>
+          </div>
+          <div class="dp-flow-arrow">&#10132;</div>
+          <div class="dp-flow-step" id="dp-explain-4">
+            <span class="dp-flow-icon">&#9989;</span>
+            <div class="dp-flow-label">CCC Attestation</div>
+            <div class="dp-flow-desc">Enclave re-encrypts updated balance table. On-chain receives only: encrypted balance hash + boolean &ldquo;recovery succeeded&rdquo; + quorum-signed CCC attestation.</div>
+            <span class="dp-flow-privacy public">&#10003; Quorum-Signed</span>
           </div>
         </div>
       </div>
@@ -2016,9 +2116,28 @@
       }
     }
 
+    function switchRecoveryTab(tabName) {
+      var btns = document.querySelectorAll('.recovery-tab-btn');
+      var panels = document.querySelectorAll('.recovery-tab-content');
+      for (var i = 0; i < btns.length; i++) {
+        btns[i].classList.toggle('active', btns[i].getAttribute('data-tab') === tabName);
+      }
+      for (var i = 0; i < panels.length; i++) {
+        panels[i].classList.toggle('active', panels[i].id === 'tab-' + tabName);
+      }
+    }
+
+    document.getElementById('recovery-tab-nav').addEventListener('click', function(e) {
+      var btn = e.target.closest('.recovery-tab-btn');
+      if (btn) switchRecoveryTab(btn.getAttribute('data-tab'));
+    });
+
     function showExplainer(type) {
-      document.getElementById('directswap-explainer').classList.toggle('visible', type === 'direct');
-      document.getElementById('darkpool-explainer').classList.toggle('visible', type === 'darkpool');
+      if (type === 'direct' || type === 'darkpool') {
+        switchRecoveryTab(type);
+      } else {
+        switchRecoveryTab('cover');
+      }
     }
 
     // Direct Swap Live Execution Panel
