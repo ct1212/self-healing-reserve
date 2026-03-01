@@ -63,6 +63,9 @@ The demo (`npm run demo`) replicates the full architecture locally without a rea
 | Attestation write | `updateAttestation()` direct call | `onReport()` via DON |
 | Wallet operations | Dry-run (logged only) | MPC wallet (real tx) |
 | Private keys | Hardhat test accounts | No raw keys (MPC wallet) |
+| Dark pool encryption | Simulated (correct interfaces) | CCC threshold encryption via Vault DON |
+| Dark pool settlement | Simulated private token transfer | CCC enclave matching + encrypted balance table |
+| Key management | No real keys | Vault DON threshold shares, proactive rotation |
 
 ## Wallet Security
 
@@ -121,8 +124,31 @@ The dark pool settlement uses Chainlink Confidential Compute (CCC), which provid
 ### Simulation Note
 CCC is in Early Access (launched early 2026). The CCC private token transfer operations in this project are simulated with the same interface patterns. The ConfidentialHTTPClient for reserve verification is already live. Full CCC GA with decrypt/encrypt primitives is planned for later in 2026.
 
-## Threat Model Considerations
+## Threat Model
+
+### Single-TEE vs Threshold Encryption
+
+The move from single-TEE encryption (CRE alone) to CCC threshold encryption fundamentally changes the threat model:
+
+| Threat | Single-TEE (CRE only) | Threshold Encryption (CCC) |
+|---|---|---|
+| Compromised enclave | Attacker sees all data processed by that enclave | Attacker sees only data assigned to that enclave after compromise — master key is never present |
+| Compromised DON node | Node operator could observe inputs/outputs | Node holds only a key share — cannot decrypt alone. Quorum required. |
+| Key extraction | Single enclave key is the single point of failure | Master secret key is never reconstructed. Vault DON re-encrypts via threshold shares. |
+| Key rotation | Must re-deploy enclave | Proactive secret sharing rotates key shares without changing the master public key |
+
+**The key property:** Compromising a single compute enclave only leaks data for requests assigned to it after compromise. The CCC master decryption key is never held by any single node — it exists only as threshold shares across the Vault DON. An attacker would need to simultaneously compromise a quorum of Vault DON nodes to reconstruct it.
+
+### CCC-Specific Considerations
+
+- **Enclave assignment**: The Workflow DON assigns compute enclaves from a pool. An attacker who compromises one enclave cannot predict which future requests will be routed to it, limiting the blast radius.
+- **Attestation verification**: The Workflow DON quorum-signs CCC results before they reach the chain. A compromised enclave producing incorrect results would fail attestation verification — the quorum acts as a second line of defense.
+- **Encrypted state on-chain**: The CREDarkPool contract stores only encrypted balance table blobs. Even with full chain access, an observer cannot determine individual market maker balances, order sizes, or transfer amounts.
+- **Graceful failure privacy**: When the dark pool fails (insufficient liquidity), the failure is reported without revealing the order size or the pool's total capacity. An observer learns only that a recovery was attempted and failed — not why or how large the gap was.
+
+### Demo-Specific Considerations
 
 - **Mock API manipulation**: In the demo, anyone on localhost can call `/toggle` or `/set-reserves` to change the reported reserve state. In production, the custodian API is authenticated and the TEE prevents MITM attacks on the data path.
 - **Contract ownership**: The `ReserveAttestation` contract restricts `updateAttestation()` to the deployer. In production, only the DON's `onReport()` callback can update the attestation.
 - **Agent autonomy**: The agent acts only on verified on-chain events (not on API data directly). An undercollateralized API response alone does not trigger recovery — it must first be attested on-chain by the CRE workflow.
+- **Simulated CCC operations**: In the demo, CCC threshold encryption and private token transfers are simulated with the correct interfaces but without real cryptographic operations. The security properties described above apply only to production CCC deployments.
