@@ -703,6 +703,7 @@
     .recovery-tab-content {
       display: none;
       padding: 28px;
+      min-height: 420px;
     }
 
     .recovery-tab-content.active {
@@ -738,6 +739,90 @@
       font-style: italic;
       margin-top: 16px;
     }
+
+    .recovery-tab-btn[data-tab="failure"].active {
+      color: #ef4444;
+      border-bottom-color: #ef4444;
+    }
+
+    .failure-explainer {
+      position: relative;
+      overflow: hidden;
+    }
+
+    .failure-explainer::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, #ef4444, transparent);
+    }
+
+    .failure-explainer h2 {
+      font-size: 0.95rem;
+      color: #ef4444;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      margin-bottom: 6px;
+    }
+
+    .failure-explainer .fail-subtitle {
+      color: #666;
+      font-size: 0.8rem;
+      margin-bottom: 20px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+
+    .fail-why {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .fail-why-what, .fail-why-next {
+      padding: 16px;
+      border-radius: 8px;
+      font-size: 0.82rem;
+      line-height: 1.6;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+
+    .fail-why-what {
+      background: rgba(239, 68, 68, 0.06);
+      border: 1px solid rgba(239, 68, 68, 0.2);
+    }
+
+    .fail-why-what h3 {
+      color: #ef4444;
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 8px;
+    }
+
+    .fail-why-what ul { list-style: none; padding: 0; }
+    .fail-why-what li { color: #999; padding: 3px 0; }
+    .fail-why-what li::before { content: '\2717 '; color: #ef4444; }
+
+    .fail-why-next {
+      background: rgba(234, 179, 8, 0.06);
+      border: 1px solid rgba(234, 179, 8, 0.2);
+    }
+
+    .fail-why-next h3 {
+      color: #eab308;
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 8px;
+    }
+
+    .fail-why-next ul { list-style: none; padding: 0; }
+    .fail-why-next li { color: #aaa; padding: 3px 0; }
+    .fail-why-next li::before { content: '\25B8 '; color: #eab308; }
 
     /* Dark Pool Explainer */
     .mechanism-explainer {
@@ -1731,6 +1816,7 @@
       <button class="recovery-tab-btn active" data-tab="cover">Recovery Mechanism</button>
       <button class="recovery-tab-btn" data-tab="direct">Direct Wallet Swap</button>
       <button class="recovery-tab-btn" data-tab="darkpool">CCC Dark Pool</button>
+      <button class="recovery-tab-btn" data-tab="failure">Dark Pool Failure</button>
     </div>
 
     <!-- Cover Tab (default) -->
@@ -1929,6 +2015,65 @@
             <div class="dp-flow-label">CCC Attestation</div>
             <div class="dp-flow-desc">Enclave re-encrypts updated balance table. On-chain receives only: encrypted balance hash + boolean &ldquo;recovery succeeded&rdquo; + quorum-signed CCC attestation.</div>
             <span class="dp-flow-privacy public">&#10003; Quorum-Signed</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Failure Tab -->
+    <div class="recovery-tab-content" id="tab-failure">
+      <div class="failure-explainer">
+        <h2>Dark Pool Recovery Failed</h2>
+        <p class="fail-subtitle">The CCC enclave could not fill the recovery order. The dark pool does not have enough pre-committed liquidity to match the deficit &mdash; the reserve stays undercollateralized until manual intervention or a retry.</p>
+
+        <div class="fail-why">
+          <div class="fail-why-what">
+            <h3>What Happened</h3>
+            <ul>
+              <li>Deficit exceeded available dark pool liquidity</li>
+              <li>CCC enclave matching timed out after scanning all committed market makers</li>
+              <li>No partial fills &mdash; the dark pool is all-or-nothing to prevent information leakage</li>
+              <li>Order expired without settlement; deficit amount remains hidden</li>
+            </ul>
+          </div>
+          <div class="fail-why-next">
+            <h3>What Happens Next</h3>
+            <ul>
+              <li>Reserve stays undercollateralized &mdash; no automatic fallback</li>
+              <li>On-chain attestation still reads <code>isSolvent = false</code></li>
+              <li>Manual intervention required: add liquidity providers or retry with different parameters</li>
+              <li>Privacy preserved &mdash; no one learned the order size or that the pool was insufficient</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="dp-flow">
+          <div class="dp-flow-step" style="border-color: #22c55e;">
+            <span class="dp-flow-icon">&#128274;</span>
+            <div class="dp-flow-label">CCC Threshold Encrypt</div>
+            <div class="dp-flow-desc">Deficit encrypted successfully.</div>
+            <span class="dp-flow-privacy private">&#128274; Threshold Encrypted</span>
+          </div>
+          <div class="dp-flow-arrow">&#10132;</div>
+          <div class="dp-flow-step" style="border-color: #22c55e;">
+            <span class="dp-flow-icon">&#128225;</span>
+            <div class="dp-flow-label">Submit to Pool</div>
+            <div class="dp-flow-desc">Encrypted order submitted to contract.</div>
+            <span class="dp-flow-privacy private">&#128274; Encrypted</span>
+          </div>
+          <div class="dp-flow-arrow">&#10132;</div>
+          <div class="dp-flow-step" style="border-color: #ef4444;">
+            <span class="dp-flow-icon" style="color: #ef4444;">&#10007;</span>
+            <div class="dp-flow-label">CCC Enclave Match</div>
+            <div class="dp-flow-desc" style="color: #ef4444;">Timed out. Insufficient liquidity committed by market makers to fill the order.</div>
+            <span class="dp-flow-privacy" style="background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3);">&#10007; Timed Out</span>
+          </div>
+          <div class="dp-flow-arrow" style="color: #333;">&#10132;</div>
+          <div class="dp-flow-step" style="border-color: #333; opacity: 0.4;">
+            <span class="dp-flow-icon">&#9989;</span>
+            <div class="dp-flow-label">CCC Attestation</div>
+            <div class="dp-flow-desc">Skipped &mdash; previous step failed.</div>
+            <span class="dp-flow-privacy" style="background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3);">&#10007; Skipped</span>
           </div>
         </div>
       </div>
@@ -2133,7 +2278,7 @@
     });
 
     function showExplainer(type) {
-      if (type === 'direct' || type === 'darkpool') {
+      if (type === 'direct' || type === 'darkpool' || type === 'failure') {
         switchRecoveryTab(type);
       } else {
         switchRecoveryTab('cover');
@@ -2331,6 +2476,7 @@
           document.getElementById('dp-data-proof').style.color = '#ef4444';
           document.getElementById('dp-data-public').textContent = 'Order expired (amount still hidden)';
           document.getElementById('dp-data-public').style.color = '#ef4444';
+          showExplainer('failure');
         }, 3500);
       } else {
         setTimeout(function() {
