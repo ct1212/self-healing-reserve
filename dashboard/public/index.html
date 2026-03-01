@@ -1573,13 +1573,13 @@
 
   <div class="dp-live-panel" id="dp-live-panel">
     <div class="dp-live-header">
-      <span class="dp-live-title">Dark Pool Execution</span>
+      <span class="dp-live-title">CCC Dark Pool Execution</span>
       <span class="dp-live-status" id="dp-live-status">Initializing</span>
     </div>
 
     <div class="dp-live-steps">
       <div class="dp-live-step waiting" id="dp-step-1">
-        <span class="privacy-tag encrypted">AES-256</span>
+        <span class="privacy-tag encrypted">CCC Threshold</span>
         <div class="dp-live-step-num">Step 1</div>
         <div class="dp-live-step-icon">&#128274;</div>
         <div class="dp-live-step-name">Encrypt</div>
@@ -1595,15 +1595,15 @@
         <div class="dp-live-step-time" id="dp-step-2-time"></div>
       </div>
       <div class="dp-live-step waiting" id="dp-step-3">
-        <span class="privacy-tag tee">TEE</span>
+        <span class="privacy-tag tee">CCC Enclave</span>
         <div class="dp-live-step-num">Step 3</div>
         <div class="dp-live-step-icon">&#128737;</div>
-        <div class="dp-live-step-name">Match</div>
+        <div class="dp-live-step-name">Match + Transfer</div>
         <div class="dp-live-step-detail" id="dp-step-3-detail">Waiting...</div>
         <div class="dp-live-step-time" id="dp-step-3-time"></div>
       </div>
       <div class="dp-live-step waiting" id="dp-step-4">
-        <span class="privacy-tag zk">ZK Proof</span>
+        <span class="privacy-tag zk">CCC Attestation</span>
         <div class="dp-live-step-num">Step 4</div>
         <div class="dp-live-step-icon">&#9989;</div>
         <div class="dp-live-step-name">Settle</div>
@@ -1616,15 +1616,19 @@
       <h4>Confidentiality Report</h4>
       <div class="data-row">
         <span class="data-label">Order Amount</span>
-        <span class="data-value hidden-val" id="dp-data-amount">&#128274; Encrypted</span>
+        <span class="data-value hidden-val" id="dp-data-amount">&#128274; CCC Threshold Encrypted</span>
       </div>
       <div class="data-row">
         <span class="data-label">Counterparties</span>
-        <span class="data-value hidden-val" id="dp-data-parties">&#128274; Hidden in TEE</span>
+        <span class="data-value hidden-val" id="dp-data-parties">&#128274; Hidden in CCC Enclave</span>
       </div>
       <div class="data-row">
         <span class="data-label">Fill Price</span>
-        <span class="data-value hidden-val" id="dp-data-price">&#128274; Hidden in TEE</span>
+        <span class="data-value hidden-val" id="dp-data-price">&#128274; Hidden in CCC Enclave</span>
+      </div>
+      <div class="data-row">
+        <span class="data-label">Settlement</span>
+        <span class="data-value hidden-val" id="dp-data-settlement">&#128274; CCC Private Token Transfer</span>
       </div>
       <div class="data-row">
         <span class="data-label">On-Chain Proof</span>
@@ -1689,8 +1693,8 @@
 
   <!-- Dark Pool Explainer (shown after large deficit simulation) -->
   <div class="mechanism-explainer darkpool-explainer" id="darkpool-explainer">
-    <h2>Confidential Dark Pool Recovery</h2>
-    <p class="dp-subtitle">When deficits exceed $50M, recovery routes through a confidential dark pool powered by Chainlink CRE to prevent market impact and information leakage.</p>
+    <h2>CCC Confidential Dark Pool Recovery</h2>
+    <p class="dp-subtitle">When deficits exceed $50M, recovery routes through a confidential dark pool powered by <strong>Chainlink Confidential Compute (CCC)</strong> &mdash; end-to-end confidential from encryption through settlement.</p>
 
     <div class="dp-why">
       <div class="dp-why-problem">
@@ -1699,16 +1703,16 @@
           <li>Large swaps on Uniswap move the market</li>
           <li>MEV bots front-run recovery transactions</li>
           <li>Competitors see exact deficit amount on-chain</li>
-          <li>Market panics when shortfall becomes public</li>
+          <li>Token transfers reveal amounts and counterparties</li>
         </ul>
       </div>
       <div class="dp-why-solution">
-        <h3>The Solution: Confidential Dark Pool</h3>
+        <h3>The Solution: CCC Private Token Transfers</h3>
         <ul>
-          <li>Order amount encrypted with TEE public key</li>
-          <li>Matching happens privately inside the enclave</li>
-          <li>Zero market impact &mdash; no public orderbook</li>
-          <li>ZK proof verifies settlement without revealing amounts</li>
+          <li>Order amount CCC threshold-encrypted (no single node can decrypt)</li>
+          <li>Vault DON re-encrypts inputs for assigned CCC enclave</li>
+          <li>Settlement via CCC private token transfer inside enclave</li>
+          <li>On-chain: only encrypted balance hash + boolean + attestation</li>
         </ul>
       </div>
     </div>
@@ -1716,30 +1720,30 @@
     <div class="dp-flow">
       <div class="dp-flow-step" id="dp-explain-1">
         <span class="dp-flow-icon">&#128274;</span>
-        <div class="dp-flow-label">Encrypt Order</div>
-        <div class="dp-flow-desc">Deficit amount encrypted with TEE public key using AES-256-GCM. No one can read the order size.</div>
-        <span class="dp-flow-privacy private">&#128274; Private</span>
+        <div class="dp-flow-label">CCC Threshold Encrypt</div>
+        <div class="dp-flow-desc">Deficit amount encrypted with CCC master public key. Threshold-shared across Vault DON &mdash; no single node can decrypt.</div>
+        <span class="dp-flow-privacy private">&#128274; Threshold Encrypted</span>
       </div>
       <div class="dp-flow-arrow">&#10132;</div>
       <div class="dp-flow-step" id="dp-explain-2">
         <span class="dp-flow-icon">&#128225;</span>
         <div class="dp-flow-label">Submit to Pool</div>
-        <div class="dp-flow-desc">Encrypted request submitted to CREDarkPool contract. Market makers see a request exists, but not the amount.</div>
+        <div class="dp-flow-desc">Encrypted request submitted to CREDarkPool contract. Contract stores encrypted blob &mdash; never sees plaintext.</div>
         <span class="dp-flow-privacy private">&#128274; Encrypted</span>
       </div>
       <div class="dp-flow-arrow">&#10132;</div>
       <div class="dp-flow-step" id="dp-explain-3">
         <span class="dp-flow-icon">&#128737;</span>
-        <div class="dp-flow-label">TEE Matching</div>
-        <div class="dp-flow-desc">Inside the Chainlink CRE enclave, multiple market makers' liquidity is matched against the request. Completely invisible to the mempool.</div>
-        <span class="dp-flow-privacy private">&#128274; TEE Enclave</span>
+        <div class="dp-flow-label">CCC Enclave Match + Transfer</div>
+        <div class="dp-flow-desc">Vault DON provides re-encrypted key shares. Enclave decrypts, matches orders, and settles via CCC private token transfer. Balances updated inside TEE.</div>
+        <span class="dp-flow-privacy private">&#128274; CCC Enclave</span>
       </div>
       <div class="dp-flow-arrow">&#10132;</div>
       <div class="dp-flow-step" id="dp-explain-4">
         <span class="dp-flow-icon">&#9989;</span>
-        <div class="dp-flow-label">ZK Settlement</div>
-        <div class="dp-flow-desc">A zero-knowledge proof confirms settlement happened and amounts match &mdash; without revealing the actual values on-chain.</div>
-        <span class="dp-flow-privacy public">&#10003; Verified</span>
+        <div class="dp-flow-label">CCC Attestation</div>
+        <div class="dp-flow-desc">Enclave re-encrypts updated balance table. On-chain receives only: encrypted balance hash + boolean &ldquo;recovery succeeded&rdquo; + quorum-signed CCC attestation.</div>
+        <span class="dp-flow-privacy public">&#10003; Quorum-Signed</span>
       </div>
     </div>
   </div>
@@ -1776,6 +1780,10 @@
             <span class="mech-attr-value bad">Exposed On-Chain</span>
           </div>
           <div class="mech-attr">
+            <span class="mech-attr-label">Token Transfer Privacy</span>
+            <span class="mech-attr-value bad">None (Public ERC-20 Transfers)</span>
+          </div>
+          <div class="mech-attr">
             <span class="mech-attr-label">Speed</span>
             <span class="mech-attr-value good">~300ms</span>
           </div>
@@ -1785,18 +1793,18 @@
           </div>
         </div>
         <div class="mech-card darkpool-card">
-          <h3>Confidential Dark Pool</h3>
+          <h3>CCC Confidential Dark Pool</h3>
           <div class="mech-attr">
             <span class="mech-attr-label">Use Case</span>
             <span class="mech-attr-value neutral">Deficits &gt; $50M</span>
           </div>
           <div class="mech-attr">
             <span class="mech-attr-label">Execution Venue</span>
-            <span class="mech-attr-value neutral">CRE TEE Enclave</span>
+            <span class="mech-attr-value neutral">CCC Compute Enclave</span>
           </div>
           <div class="mech-attr">
             <span class="mech-attr-label">Transaction Visibility</span>
-            <span class="mech-attr-value good">Boolean Only</span>
+            <span class="mech-attr-value good">Boolean + Encrypted Hash</span>
           </div>
           <div class="mech-attr">
             <span class="mech-attr-label">Market Impact</span>
@@ -1804,11 +1812,15 @@
           </div>
           <div class="mech-attr">
             <span class="mech-attr-label">MEV Protection</span>
-            <span class="mech-attr-value good">Full (TEE + Encryption)</span>
+            <span class="mech-attr-value good">Full (CCC + Threshold Encryption)</span>
           </div>
           <div class="mech-attr">
             <span class="mech-attr-label">Amount Privacy</span>
-            <span class="mech-attr-value good">Encrypted + ZK Proof</span>
+            <span class="mech-attr-value good">CCC Threshold Encrypted</span>
+          </div>
+          <div class="mech-attr">
+            <span class="mech-attr-label">Token Transfer Privacy</span>
+            <span class="mech-attr-value good">Full (CCC Private Token Transfer)</span>
           </div>
           <div class="mech-attr">
             <span class="mech-attr-label">Speed</span>
@@ -1816,7 +1828,7 @@
           </div>
           <div class="mech-attr">
             <span class="mech-attr-label">Complexity</span>
-            <span class="mech-attr-value warn">High (4 steps + ZK)</span>
+            <span class="mech-attr-value warn">High (4 steps + CCC)</span>
           </div>
         </div>
       </div>
@@ -1877,10 +1889,10 @@
       checkBalance: { name: 'Check Wallet Balance', desc: 'Verify USDC available for recovery swap' },
       trade: { name: 'Uniswap DEX Swap', desc: 'Swap USDC to wBTC on Uniswap' },
       send: { name: 'Send to Reserve', desc: 'Transfer wBTC back to the reserve fund' },
-      encryptRequest: { name: 'Encrypt Order', desc: 'Encrypt trade details for confidential matching in TEE' },
-      submitToPool: { name: 'Submit to Dark Pool', desc: 'Submit encrypted order to confidential liquidity pool' },
-      monitorFill: { name: 'Monitor Fill', desc: 'Wait for TEE matching engine to fill the order' },
-      settle: { name: 'Settle On-Chain', desc: 'Settle matched trade on-chain with ZK proof' },
+      encryptRequest: { name: 'CCC Threshold Encrypt', desc: 'Encrypt deficit with CCC master public key (threshold encryption)' },
+      submitToPool: { name: 'Submit to Dark Pool', desc: 'Submit encrypted order to CCC confidential dark pool' },
+      monitorFill: { name: 'CCC Enclave Match + Transfer', desc: 'CCC enclave matches orders and settles via private token transfer' },
+      settle: { name: 'CCC Settlement', desc: 'Write encrypted balance hash + boolean + CCC attestation on-chain' },
     };
 
     function formatNumber(n) {
@@ -2122,12 +2134,14 @@
       // Show data reveal panel
       var reveal = document.getElementById('dp-data-reveal');
       reveal.style.display = '';
-      document.getElementById('dp-data-amount').textContent = '\u{1F512} Encrypted';
+      document.getElementById('dp-data-amount').textContent = '\u{1F512} CCC Threshold Encrypted';
       document.getElementById('dp-data-amount').className = 'data-value hidden-val';
-      document.getElementById('dp-data-parties').textContent = '\u{1F512} Hidden in TEE';
+      document.getElementById('dp-data-parties').textContent = '\u{1F512} Hidden in CCC Enclave';
       document.getElementById('dp-data-parties').className = 'data-value hidden-val';
-      document.getElementById('dp-data-price').textContent = '\u{1F512} Hidden in TEE';
+      document.getElementById('dp-data-price').textContent = '\u{1F512} Hidden in CCC Enclave';
       document.getElementById('dp-data-price').className = 'data-value hidden-val';
+      document.getElementById('dp-data-settlement').textContent = '\u{1F512} CCC Private Token Transfer';
+      document.getElementById('dp-data-settlement').className = 'data-value hidden-val';
       document.getElementById('dp-data-proof').textContent = 'Pending...';
       document.getElementById('dp-data-proof').style.color = '#555';
       document.getElementById('dp-data-public').textContent = 'None yet';
@@ -2153,13 +2167,13 @@
       showDPPanel();
       var amount = recoveryData ? Math.round(recoveryData.recoveryAmount).toLocaleString() + ' wBTC' : '??? wBTC';
 
-      // Step 1: Encrypt (0ms - 500ms)
+      // Step 1: CCC Threshold Encrypt (0ms - 500ms)
       setTimeout(function() {
-        setDPStep(1, 'active', 'Encrypting deficit amount with TEE public key...', null);
+        setDPStep(1, 'active', 'Encrypting deficit with CCC master public key (threshold encryption)...', null);
       }, 100);
       setTimeout(function() {
-        setDPStep(1, 'done', 'Order encrypted with AES-256-GCM. 128-byte ciphertext generated.', 80);
-        document.getElementById('dp-data-amount').textContent = '\u{1F512} ' + amount + ' (encrypted)';
+        setDPStep(1, 'done', 'CCC threshold encrypted. No single Vault DON node can decrypt.', 80);
+        document.getElementById('dp-data-amount').textContent = '\u{1F512} ' + amount + ' (CCC threshold encrypted)';
       }, 600);
 
       // Step 2: Submit (600ms - 1200ms)
@@ -2167,22 +2181,22 @@
         setDPStep(2, 'active', 'Submitting encrypted order to CREDarkPool contract...', null);
       }, 700);
       setTimeout(function() {
-        setDPStep(2, 'done', 'Order submitted to Chainlink Confidential Dark Pool. Awaiting fill.', 120);
+        setDPStep(2, 'done', 'Order submitted to CCC Dark Pool. Contract stores encrypted blob only.', 120);
         document.getElementById('dp-data-public').textContent = 'Order exists (amount hidden)';
         document.getElementById('dp-data-public').style.color = '#eab308';
       }, 1300);
 
-      // Step 3: TEE Matching (1300ms - 3300ms for success, fail at 3300ms)
+      // Step 3: CCC Enclave Match + Private Token Transfer (1300ms - 3300ms)
       setTimeout(function() {
-        setDPStep(3, 'active', 'TEE matching engine scanning liquidity across 3 market makers...', null);
+        setDPStep(3, 'active', 'Vault DON re-encrypting inputs for CCC compute enclave...', null);
       }, 1400);
 
       if (isFailure) {
         setTimeout(function() {
-          setDPStep(3, 'active', 'Matching... insufficient liquidity. Extending timeout...', null);
+          setDPStep(3, 'active', 'CCC enclave matching... insufficient liquidity. Extending timeout...', null);
         }, 2400);
         setTimeout(function() {
-          setDPStep(3, 'failed', 'TEE matching engine timed out. Insufficient dark pool liquidity.', 5000);
+          setDPStep(3, 'failed', 'CCC enclave matching timed out. Insufficient dark pool liquidity.', 5000);
           setDPStep(4, 'failed', 'Skipped - previous step failed.', 0);
           setDPStatus('Failed', 'failed');
           document.getElementById('dp-data-parties').textContent = '\u2717 No match found';
@@ -2191,6 +2205,9 @@
           document.getElementById('dp-data-price').textContent = '\u2717 N/A';
           document.getElementById('dp-data-price').className = 'data-value';
           document.getElementById('dp-data-price').style.color = '#ef4444';
+          document.getElementById('dp-data-settlement').textContent = '\u2717 Not executed';
+          document.getElementById('dp-data-settlement').className = 'data-value';
+          document.getElementById('dp-data-settlement').style.color = '#ef4444';
           document.getElementById('dp-data-proof').textContent = '\u2717 Not generated';
           document.getElementById('dp-data-proof').style.color = '#ef4444';
           document.getElementById('dp-data-public').textContent = 'Order expired (amount still hidden)';
@@ -2198,32 +2215,35 @@
         }, 3500);
       } else {
         setTimeout(function() {
-          setDPStep(3, 'active', 'Found 3 counterparties. Matching orders privately inside enclave...', null);
+          setDPStep(3, 'active', 'CCC enclave decrypted inputs. Matching 3 counterparties + applying private token transfers...', null);
         }, 2200);
         setTimeout(function() {
-          setDPStep(3, 'done', 'Order filled by 3 counterparties at TWAP +/- 0.05%. Zero mempool visibility.', 1800);
-          document.getElementById('dp-data-parties').textContent = '3 market makers (identities hidden)';
+          setDPStep(3, 'done', 'Filled by 3 MMs via CCC private token transfer. Balances updated inside enclave.', 1800);
+          document.getElementById('dp-data-parties').textContent = '3 market makers (identities hidden in CCC enclave)';
           document.getElementById('dp-data-parties').className = 'data-value';
           document.getElementById('dp-data-parties').style.color = '#22c55e';
-          document.getElementById('dp-data-price').textContent = 'TWAP +/- 0.05% (exact hidden)';
+          document.getElementById('dp-data-price').textContent = 'TWAP +/- 0.05% (exact hidden in CCC enclave)';
           document.getElementById('dp-data-price').className = 'data-value';
           document.getElementById('dp-data-price').style.color = '#22c55e';
+          document.getElementById('dp-data-settlement').textContent = 'CCC private token transfer (encrypted balance update)';
+          document.getElementById('dp-data-settlement').className = 'data-value';
+          document.getElementById('dp-data-settlement').style.color = '#22c55e';
         }, 3300);
 
-        // Step 4: ZK Settlement (3300ms - 3900ms)
+        // Step 4: CCC Attestation + On-chain Settlement (3300ms - 3900ms)
         setTimeout(function() {
-          setDPStep(4, 'active', 'Generating zero-knowledge proof for on-chain settlement...', null);
+          setDPStep(4, 'active', 'Enclave re-encrypting balance table. Workflow DON quorum-signing attestation...', null);
         }, 3400);
         setTimeout(function() {
-          var zkProof = '0x' + Array.from({ length: 8 }, function() { return Math.random().toString(16).slice(2, 4); }).join('');
-          setDPStep(4, 'done', 'ZK proof verified. Settlement confirmed on-chain. Collateral restored.', 200);
+          var cccAttestation = '0xCCC_' + Array.from({ length: 8 }, function() { return Math.random().toString(16).slice(2, 4); }).join('');
+          setDPStep(4, 'done', 'CCC attestation verified. Encrypted balance hash + boolean written on-chain.', 200);
           setDPStatus('Complete', 'complete');
-          document.getElementById('dp-data-proof').textContent = zkProof;
+          document.getElementById('dp-data-proof').textContent = cccAttestation + ' (quorum-signed)';
           document.getElementById('dp-data-proof').style.color = '#22c55e';
           document.getElementById('dp-data-amount').textContent = '\u{1F512} ' + amount + ' (never revealed on-chain)';
           document.getElementById('dp-data-amount').className = 'data-value';
           document.getElementById('dp-data-amount').style.color = '#22c55e';
-          document.getElementById('dp-data-public').textContent = 'Boolean: isSolvent = true + ZK proof';
+          document.getElementById('dp-data-public').textContent = 'Boolean: recoverySucceeded = true + encrypted balance hash + CCC attestation';
           document.getElementById('dp-data-public').style.color = '#22c55e';
         }, 4000);
       }
@@ -2239,17 +2259,17 @@
         if (data.ok) {
           showToast(
             'Undercollateralized!',
-            'Reserve ratio dropped to ' + data.data.ratio + '%. Routing to confidential dark pool...',
+            'Reserve ratio dropped to ' + data.data.ratio + '%. Routing to CCC confidential dark pool...',
             'error'
           );
           poll();
-          btn.textContent = 'Dark pool executing...';
+          btn.textContent = 'CCC dark pool executing...';
           // Start live execution animation
           animateDPExecution(data.data, false);
           setTimeout(function() {
             showToast(
-              'Dark Pool Recovery Complete',
-              'Confidential order filled via TEE matching engine. Settled on-chain with ZK proof.',
+              'CCC Dark Pool Recovery Complete',
+              'Filled via CCC enclave matching + private token transfer. Only encrypted hash on-chain.',
               'success'
             );
             poll();
@@ -2274,8 +2294,8 @@
         var data = await res.json();
         if (data.ok) {
           showToast(
-            'Dark Pool Recovery Failed!',
-            'TEE matching engine timed out. Failed at: ' + data.data.failedStep,
+            'CCC Dark Pool Recovery Failed!',
+            'CCC enclave matching timed out. Failed at: ' + data.data.failedStep,
             'error'
           );
           // Start live execution animation (failure mode)
@@ -2526,7 +2546,7 @@
         // Update strategy label
         var strategyEl = document.getElementById('strategy-label');
         if (mech === 'darkpool') {
-          strategyEl.textContent = '4-Step Dark Pool Recovery';
+          strategyEl.textContent = '4-Step CCC Dark Pool Recovery';
         } else {
           strategyEl.textContent = '3-Step Direct Wallet Recovery';
         }
@@ -2534,7 +2554,7 @@
         // Mechanism badge
         var mechBadgeHtml = '';
         if (mech === 'darkpool') {
-          mechBadgeHtml = '<div class="mechanism-badge darkpool">Confidential Dark Pool</div>';
+          mechBadgeHtml = '<div class="mechanism-badge darkpool">CCC Confidential Dark Pool</div>';
         } else {
           mechBadgeHtml = '<div class="mechanism-badge direct">Direct Wallet Swap</div>';
         }
@@ -2551,7 +2571,11 @@
             if (s.data.venue) details.push(s.data.venue);
             if (s.data.fillPrice) details.push('Fill: ' + s.data.fillPrice);
             if (s.data.matchedCounterparties) details.push(s.data.matchedCounterparties + ' counterparties');
+            if (s.data.settlement) details.push(s.data.settlement);
             if (s.data.zkProof) details.push('ZK proof: ' + s.data.zkProof);
+            if (s.data.balanceHash) details.push('Balance hash: ' + s.data.balanceHash);
+            if (s.data.cccAttestation) details.push('CCC attestation: ' + s.data.cccAttestation);
+            if (s.data.onChain) details.push(s.data.onChain);
             if (s.data.settlementTx) details.push('tx: ' + s.data.settlementTx);
             if (s.data.gasUsed) details.push('Gas: ' + s.data.gasUsed);
             if (s.data.error) details.push(s.data.error);
@@ -2581,9 +2605,9 @@
 
           if (latest.success && sMech === 'darkpool') {
             summaryHtml = '<div class="recovery-summary recovery-summary-success">' +
-              'Agent submitted <strong>' + amountStr + '</strong> confidential order to the Chainlink Dark Pool. ' +
-              'Order filled by TEE matching engine across 3 counterparties at TWAP &plusmn; 0.05%. ' +
-              'Settled on-chain with ZK proof to restore <strong>' + s.toRatio + '% collateralization</strong> ' +
+              'Agent submitted <strong>' + amountStr + '</strong> CCC threshold-encrypted order to the dark pool. ' +
+              'CCC enclave matched across 3 counterparties and settled via private token transfer. ' +
+              'On-chain: only encrypted balance hash + boolean + CCC attestation. Restored to <strong>' + s.toRatio + '% collateralization</strong> ' +
               '(from ' + s.fromRatio + '% &rarr; ' + s.toRatio + '%).' +
             '</div>';
           } else if (latest.success) {
@@ -2595,8 +2619,8 @@
             '</div>';
           } else if (sMech === 'darkpool') {
             summaryHtml = '<div class="recovery-summary recovery-summary-failure">' +
-              'Agent attempted to fill <strong>' + amountStr + '</strong> via the Chainlink Confidential Dark Pool, ' +
-              'but the TEE matching engine timed out due to insufficient dark pool liquidity. ' +
+              'Agent attempted to fill <strong>' + amountStr + '</strong> via the CCC Confidential Dark Pool, ' +
+              'but the CCC enclave matching timed out due to insufficient dark pool liquidity. ' +
               'Reserve remains at <strong>' + s.fromRatio + '% collateralization</strong>. Manual intervention required.' +
             '</div>';
           } else {

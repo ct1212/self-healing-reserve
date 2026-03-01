@@ -29,7 +29,7 @@ This document explains the security model of the Self-Healing Reserve system, di
                         └────────────────────┘
 ```
 
-**Key principle:** Exact reserve balances are confidential. Only a boolean `isSolvent` attestation is published on-chain. The architecture ensures no sensitive financial data leaks, even when the attestation is publicly verifiable.
+**Key principle:** Exact reserve balances are confidential. Only a boolean `isSolvent` attestation is published on-chain. For dark pool recovery, CCC private token transfers ensure that settlement amounts, counterparties, and transfer details also remain confidential — on-chain state contains only an encrypted balance hash + boolean + quorum-signed CCC attestation.
 
 ## What Runs in the TEE (Production)
 
@@ -74,6 +74,51 @@ The recovery agent uses an MPC wallet for wallet operations:
   2. `trade` — swap ETH to USDC
   3. `send` — transfer USDC to the reserve address
 - **No arbitrary execution** — the agent does not accept or execute arbitrary commands. Recovery logic is hardcoded in `agent/recovery.ts`.
+
+## CCC Security Model (Dark Pool Settlement)
+
+The dark pool settlement uses Chainlink Confidential Compute (CCC), which provides stronger privacy guarantees than CRE alone:
+
+### Threshold Encryption
+- Deficit amounts are encrypted under the CCC **master public key**, which is threshold-shared across the Vault DON
+- **No single Vault DON node** can decrypt the data — a quorum of nodes must cooperate to provide re-encrypted key shares to the assigned compute enclave
+- Even if individual Vault DON nodes are compromised, the encrypted data remains secure as long as the threshold is maintained
+
+### Vault DON (Decryption Nodes)
+- The Vault DON holds threshold-shared fragments of the master secret key
+- When a computation is needed, the Vault DON **re-encrypts** inputs for the specific assigned compute enclave
+- Re-encryption is done without ever reconstructing the full master secret key
+- Key shares are rotated periodically (proactive secret sharing)
+
+### Compute Enclaves
+- CCC computations run inside TEE (Trusted Execution Environment) enclaves
+- The enclave receives re-encrypted inputs from the Vault DON, decrypts locally, performs computation
+- The enclave produces an **attestation** proving the computation was performed correctly inside a genuine TEE
+- The Workflow DON verifies the attestation and **quorum-signs** the result before writing to chain
+
+### Private Token Transfers
+- CCC private token transfers use an **account-based** model (more efficient than UTXO-based privacy)
+- The contract stores an **encrypted balance table** — balances encrypted under the CCC master public key
+- Transfers happen entirely inside the CCC enclave: decrypt balances → apply debits/credits → re-encrypt
+- On-chain, only the encrypted balance table blob and a hash are stored
+- No plaintext amounts, sender/receiver identities, or transfer details are ever visible on-chain
+
+### Data Visibility After CCC Integration
+
+| Data | Visibility |
+|---|---|
+| `isSolvent` boolean | Public on-chain (ReserveAttestation.sol) |
+| Reserve amounts | Never on-chain (stays in CRE TEE) |
+| Dark pool order amount | Never on-chain (CCC threshold encrypted) |
+| Market maker identities | Never on-chain (inside CCC enclave only) |
+| Fill prices | Never on-chain (inside CCC enclave only) |
+| Token transfer amounts | Never on-chain (CCC private token transfer) |
+| Updated balance table | On-chain as encrypted blob + hash only |
+| Recovery succeeded | Public on-chain (boolean) |
+| CCC attestation | Public on-chain (proves computation was correct) |
+
+### Simulation Note
+CCC is in Early Access (launched early 2026). The CCC private token transfer operations in this project are simulated with the same interface patterns. The ConfidentialHTTPClient for reserve verification is already live. Full CCC GA with decrypt/encrypt primitives is planned for later in 2026.
 
 ## Threat Model Considerations
 

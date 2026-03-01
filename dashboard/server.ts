@@ -669,15 +669,18 @@ app.post('/api/simulate-large', async (_req, res) => {
         const orderId = 'DP-' + Math.random().toString(36).slice(2, 8).toUpperCase()
         const zkProof = '0x' + Array.from({ length: 8 }, () => Math.random().toString(16).slice(2, 4)).join('')
 
+        const balanceHash = '0x' + Array.from({ length: 16 }, () => Math.random().toString(16).slice(2, 4)).join('')
+        const cccAttestation = '0xCCC_' + Array.from({ length: 12 }, () => Math.random().toString(16).slice(2, 4)).join('')
+
         const recoverySteps = [
           { step: 'encryptRequest' as const, success: true, timestamp: recoveryTime, durationMs: 80, mechanism: 'darkpool' as const,
-            data: { algorithm: 'AES-256-GCM', payload: '128-byte encrypted order' } },
+            data: { algorithm: 'CCC Threshold Encryption', payload: 'Encrypted under CCC master public key (threshold-shared across Vault DON)' } },
           { step: 'submitToPool' as const, success: true, timestamp: recoveryTime + 100, durationMs: 120, mechanism: 'darkpool' as const,
-            data: { orderId, venue: 'Chainlink Confidential Dark Pool', amount: fmtRecovery + ' wBTC' } },
+            data: { orderId, venue: 'Chainlink CCC Dark Pool', amount: fmtRecovery + ' wBTC' } },
           { step: 'monitorFill' as const, success: true, timestamp: recoveryTime + 250, durationMs: 1800, mechanism: 'darkpool' as const,
-            data: { fillPrice: 'TWAP \u00B1 0.05%', matchedCounterparties: 3, executionLatency: '1.8s' } },
+            data: { fillPrice: 'TWAP \u00B1 0.05%', matchedCounterparties: 3, settlement: 'CCC Private Token Transfer', executionLatency: '1.8s' } },
           { step: 'settle' as const, success: true, timestamp: recoveryTime + 2100, durationMs: 200, mechanism: 'darkpool' as const,
-            data: { zkProof, settlementTx: '0x' + Math.random().toString(16).slice(2, 10) + '...', gasUsed: '145,230' } },
+            data: { balanceHash, cccAttestation, settlementTx: '0x' + Math.random().toString(16).slice(2, 10) + '...', onChain: 'Encrypted balance hash + boolean + CCC attestation' } },
         ]
 
         recoveryHistory.push({
@@ -707,7 +710,7 @@ app.post('/api/simulate-large', async (_req, res) => {
         agentActivity.push({
           action: 'recovery',
           timestamp: Math.floor(recoveryTime / 1000),
-          details: `Dark pool recovery complete. Filled ${fmtRecovery} wBTC (${fmtUsd}) via confidential TEE matching.`,
+          details: `CCC dark pool recovery complete. Filled ${fmtRecovery} wBTC (${fmtUsd}) via CCC enclave matching + private token transfer. Only encrypted balance hash on-chain.`,
         })
 
         if (!agentMetrics) {
@@ -778,11 +781,11 @@ app.post('/api/simulate-failure', async (_req, res) => {
 
     const recoverySteps = [
       { step: 'encryptRequest' as const, success: true, timestamp: now, durationMs: 80, mechanism: 'darkpool' as const,
-        data: { algorithm: 'AES-256-GCM', payload: '128-byte encrypted order' } },
+        data: { algorithm: 'CCC Threshold Encryption', payload: 'Encrypted under CCC master public key (threshold-shared across Vault DON)' } },
       { step: 'submitToPool' as const, success: true, timestamp: now + 100, durationMs: 120, mechanism: 'darkpool' as const,
-        data: { orderId, venue: 'Chainlink Confidential Dark Pool', amount: fmtRecovery + ' wBTC' } },
+        data: { orderId, venue: 'Chainlink CCC Dark Pool', amount: fmtRecovery + ' wBTC' } },
       { step: 'monitorFill' as const, success: false, timestamp: now + 250, durationMs: 5000, mechanism: 'darkpool' as const,
-        data: { error: 'TEE matching engine timed out. Insufficient dark pool liquidity for ' + fmtRecovery + ' wBTC' } },
+        data: { error: 'CCC enclave matching timed out. Insufficient dark pool liquidity for ' + fmtRecovery + ' wBTC' } },
       { step: 'settle' as const, success: false, timestamp: now + 5300, durationMs: 0, mechanism: 'darkpool' as const,
         data: { error: 'Skipped, previous step failed' } },
     ]
@@ -817,7 +820,7 @@ app.post('/api/simulate-failure', async (_req, res) => {
     agentMetrics.successRate = (agentMetrics.successfulRecoveries / agentMetrics.totalRecoveries) * 100
     agentMetrics.recentErrors.push({
       step: 'monitorFill',
-      error: 'TEE matching engine timed out',
+      error: 'CCC enclave matching timed out',
       timestamp: now,
     })
 
@@ -829,7 +832,7 @@ app.post('/api/simulate-failure', async (_req, res) => {
     agentActivity.push({
       action: 'recovery',
       timestamp: Math.floor(now / 1000),
-      details: `Dark pool recovery FAILED. TEE matching engine timed out for ${fmtRecovery} wBTC (${fmtUsd}). Manual intervention required.`,
+      details: `CCC dark pool recovery FAILED. CCC enclave matching timed out for ${fmtRecovery} wBTC (${fmtUsd}). Manual intervention required.`,
     })
 
     res.json({
@@ -839,8 +842,8 @@ app.post('/api/simulate-failure', async (_req, res) => {
       data: {
         totalReserve: droppedReserve,
         totalLiabilities: liabilities,
-        failedStep: 'Dark Pool Fill',
-        error: 'TEE matching engine timed out',
+        failedStep: 'CCC Enclave Match',
+        error: 'CCC enclave matching timed out',
         feedDescription: feedDesc,
       },
     })

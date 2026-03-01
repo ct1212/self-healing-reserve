@@ -47,40 +47,51 @@ Without CRE, proof-of-reserve is a tradeoff between transparency and stability. 
 - **Recovery is private** — no one knows how much is being rebalanced, or through which venue
 - **Market impact is zero** — competitors, traders, and MEV bots can't front-run what they can't see
 - **Confidence is maintained** — the public sees "solvent" or "insolvent" without the noise of partial ratios
+- **Settlement is confidential** — CCC private token transfers make the actual wBTC movements during recovery invisible on-chain, not just the computation
 
 ## Dual Recovery: Direct Swap vs Confidential Dark Pool
 
 The agent intelligently selects the optimal recovery method based on deficit size:
 
-| Mechanism | When | How | Visibility |
-|-----------|------|-----|------------|
-| **Direct Wallet Swap** | Small deficits (<$50M) | Agent swaps USDC → wBTC on Uniswap | Public on-chain txs |
-| **Confidential Dark Pool** | Large deficits (>$50M) | TEE-matched OTC fills via CREDarkPool.sol | Only boolean result public |
+| Mechanism | When | How | Visibility | Token Transfer Privacy |
+|-----------|------|-----|------------|----------------------|
+| **Direct Wallet Swap** | Small deficits (<$50M) | Agent swaps USDC → wBTC on Uniswap | Public on-chain txs | None (public ERC-20 transfers) |
+| **CCC Confidential Dark Pool** | Large deficits (>$50M) | CCC enclave matching + private token transfer | Only boolean + encrypted hash | Full (CCC private token transfers) |
 
 ### Why two mechanisms?
 
-A $500K deficit can be swapped on Uniswap without moving the market — just do it fast. But a $50M+ deficit on a DEX would crater the price, signal distress, and attract MEV. For large deficits, the dark pool matches with institutional market makers inside a TEE. No one sees the order size, the counterparties, or the fill price. Only the settlement proof hits the chain.
+A $500K deficit can be swapped on Uniswap without moving the market — just do it fast. But a $50M+ deficit on a DEX would crater the price, signal distress, and attract MEV. For large deficits, the CCC-powered dark pool matches with institutional market makers inside a CCC compute enclave. No one sees the order size, the counterparties, or the fill price. Settlement happens via CCC private token transfers — the actual wBTC movements are invisible on-chain. Only a boolean result + encrypted balance hash + quorum-signed CCC attestation are written on-chain.
 
-### Dark Pool Architecture (CRE-based)
+### Dark Pool Architecture (CRE + CCC)
 
 ```
-Agent encrypts deficit amount with TEE public key
+Agent encrypts deficit with CCC master public key (threshold encryption)
     │
     ▼
-CREDarkPool.sol receives encrypted request
+CREDarkPool.sol receives encrypted request (stores opaque blob only)
     │
     ▼
-TEE Enclave (Chainlink Confidential Compute)
-    ├── Decrypts order
-    ├── Matches with market makers privately
-    ├── No order details revealed to any party
-    └── Generates ZK proof of valid fill
+CCC Workflow DON assigns compute enclave from pool
     │
     ▼
-Settlement on-chain with ZK proof
-    PUBLIC:  "Recovery executed successfully"
-    PRIVATE: How much, from whom, at what price
+Vault DON re-encrypts inputs for assigned enclave (threshold key shares)
+    │
+    ▼
+CCC Compute Enclave (inside TEE)
+    ├── Decrypts deficit amount + market maker balance table
+    ├── Matches orders across multiple market makers
+    ├── Applies transfers via CCC private token transfer
+    │   (debit market makers, credit reserve — all inside TEE)
+    ├── Re-encrypts updated balance table under CCC master public key
+    └── Returns: encrypted balance table + boolean + hash + attestation
+    │
+    ▼
+On-chain settlement via CREDarkPool.sol
+    PUBLIC:  recoverySucceeded = true/false + encrypted balance hash + CCC attestation
+    PRIVATE: Amounts, counterparties, fill prices, token transfers — NEVER on-chain
 ```
+
+**Key distinction:** CRE handles the workflow orchestration; CCC handles the private token transfers within that workflow. The computation is confidential (CRE TEE), AND the settlement is confidential (CCC private tokens).
 
 ### Dark Pool Liquidity: How Capital Is Ready When Needed
 
@@ -123,7 +134,7 @@ The demo starts a local Hardhat node, deploys contracts, and runs the dashboard 
 
 **ReserveAttestation.sol** — On-chain boolean attestation. The CRE workflow calls `onReport()` to write `isSolvent`. The agent monitors `ReserveStatusUpdated(bool, uint256)` events.
 
-**CREDarkPool.sol** — Proof-of-concept confidential dark pool. `requestCollateral()` accepts encrypted orders; `confidentialFill()` settles with ZK proof and TEE attestation. Runs in simulation mode pending full CRE availability.
+**CREDarkPool.sol** — Confidential dark pool with CCC private token transfer integration. `requestCollateral()` accepts CCC threshold-encrypted orders; `cccSettle()` receives encrypted balance table updates from the CCC enclave with quorum-signed attestations. `depositLiquidity()` allows market makers to deposit encrypted amounts. The contract never sees plaintext — it stores only encrypted blobs + hashes. Runs in simulation mode pending full CCC GA.
 
 ## CRE Workflow
 
@@ -139,7 +150,7 @@ The demo starts a local Hardhat node, deploys contracts, and runs the dashboard 
 Monitors `ReserveStatusUpdated` events and selects recovery mechanism:
 
 - **Small deficits**: Check wallet balance → Swap USDC → wBTC on Uniswap → Send to reserve
-- **Large deficits**: Encrypt order → Submit to dark pool → TEE matching → ZK settlement
+- **Large deficits**: CCC threshold encrypt → Submit to dark pool → CCC enclave matching + private token transfer → Encrypted settlement on-chain
 
 Uses an MPC wallet (no raw private keys exposed to the agent). Dry-run mode by default.
 
@@ -149,10 +160,13 @@ See [SECURITY.md](./SECURITY.md) for the full security architecture, including w
 
 ## Stack
 
-- **Chainlink CRE** — Chainlink Runtime Environment (TEE-based verification)
+- **Chainlink CRE** — Chainlink Runtime Environment (TEE-based verification + workflow orchestration)
+- **Chainlink Confidential Compute (CCC)** — Private token transfers for dark pool settlement (threshold encryption, Vault DON, compute enclaves)
 - **Chainlink Proof of Reserve** — live wBTC PoR feed on Ethereum mainnet
 - **MPC wallet** — autonomous agent wallet (no raw private keys)
 - **Solidity 0.8.19** — ReserveAttestation + CREDarkPool contracts
 - **TypeScript + viem** — all runtime code, Ethereum client
 - **Express** — dashboard backend + mock API
 - **Hardhat** — local EVM for demo
+
+> **CRE vs CCC:** CRE is the workflow orchestration layer (triggers, HTTP calls, consensus). CCC is the privacy service built on CRE — it adds threshold encryption, Vault DON (decryption nodes), and compute enclaves for private token transfers. This project uses CRE for reserve verification and CCC for dark pool settlement.

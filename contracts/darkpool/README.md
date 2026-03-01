@@ -1,44 +1,48 @@
 # CREDarkPool Integration Guide
 
-Chainlink Confidential Compute Private Transactions integration for the Self-Healing Reserve dark pool.
+Chainlink Confidential Compute (CCC) Private Token Transfer integration for the Self-Healing Reserve dark pool.
 
 ## Overview
 
-This integration enables **confidential collateral recovery** where:
-- Recovery need is encrypted (amount hidden)
-- Market makers fill via private transactions to shielded addresses
-- No on-chain visibility of participants or amounts until withdrawal
-- Cryptographic tickets prevent front-running and ensure settlement
+This integration enables **end-to-end confidential collateral recovery** where:
+- Recovery need is CCC threshold-encrypted (no single node can decrypt)
+- Market makers deposit encrypted liquidity via `depositLiquidity()`
+- CCC enclave matches orders and settles via private token transfer
+- On-chain: only encrypted balance hash + boolean + CCC attestation
 
 ## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                    CONFIDENTIAL DARK POOL FLOW                      │
+│              CCC CONFIDENTIAL DARK POOL FLOW                        │
 ├─────────────────────────────────────────────────────────────────────┤
 │                                                                     │
 │  1. REQUEST                                                         │
 │     Recovery Agent → DarkPool.requestCollateral()                   │
-│     - Encrypted amount (TEE public key)                             │
+│     - Amount encrypted with CCC master public key (threshold)       │
 │     - Shielded address (one-time use)                               │
 │     - Premium incentive + timeout                                   │
 │                                                                     │
-│  2. FILL (Off-Chain)                                                │
-│     Market Maker → Vault Contract → Shielded Address                │
-│     - Deposit via private transaction                               │
-│     - No link to MM identity                                        │
+│  2. CCC PROCESSING                                                  │
+│     Workflow DON → assigns CCC compute enclave                      │
+│     Vault DON → re-encrypts inputs for assigned enclave             │
+│     - No single node can decrypt (threshold key shares)             │
 │                                                                     │
-│  3. VERIFY (TEE)                                                    │
-│     Chainlink CC → confidentialFill()                               │
-│     - Verify deposit to shielded address                            │
-│     - Generate withdrawal ticket                                    │
-│     - ZK proof of valid matching                                    │
+│  3. ENCLAVE MATCH + PRIVATE TOKEN TRANSFER                          │
+│     CCC Enclave (inside TEE):                                       │
+│     - Decrypts deficit amount + market maker balances               │
+│     - Matches orders across multiple market makers                  │
+│     - Applies transfers (debit MMs, credit reserve)                 │
+│     - Re-encrypts updated balance table                             │
+│     - Returns: encrypted balances + boolean + hash + attestation    │
 │                                                                     │
-│  4. WITHDRAW                                                        │
-│     Recovery Agent → withdrawWithTicket()                           │
-│     - Submit cryptographic ticket                                   │
-│     - Amount revealed ONLY here                                     │
-│     - Funds transferred to agent                                    │
+│  4. ON-CHAIN SETTLEMENT                                             │
+│     CCC Enclave → DarkPool.cccSettle()                              │
+│     - Encrypted balance table stored (opaque blob)                  │
+│     - Boolean recoverySucceeded written                             │
+│     - Balance hash for integrity verification                       │
+│     - Quorum-signed CCC attestation                                 │
+│     - NO plaintext amounts ever reach the contract                  │
 │                                                                     │
 └─────────────────────────────────────────────────────────────────────┘
 ```
@@ -57,136 +61,129 @@ This integration enables **confidential collateral recovery** where:
 
 ## Key Features
 
-### 1. Encrypted Amounts
-Amounts are encrypted with the TEE public key and never stored on-chain:
+### 1. CCC Threshold Encrypted Amounts
+Amounts are encrypted with the CCC master public key (threshold-shared across Vault DON):
 ```solidity
-bytes32 encryptedAmount;  // Only TEE can decrypt
+bytes32 encryptedAmount;  // CCC threshold encrypted — no single node can decrypt
 ```
 
-### 2. Shielded Addresses
-One-time addresses that cannot be linked to real addresses:
+### 2. CCC Encrypted Balance Table
+Market maker liquidity stored as an encrypted blob — all balance operations happen inside the CCC enclave:
 ```solidity
-bytes32 shieldedAddress;  // Generated by TEE, looks like normal address
+struct EncryptedBalanceTable {
+    bytes encryptedData;    // Opaque blob (CCC master key encrypted)
+    bytes32 balanceHash;    // Hash for integrity verification
+    uint256 version;        // Incrementing version
+}
 ```
 
-### 3. Withdrawal Tickets
-Cryptographic proofs from the TEE that prevent:
-- Double-spending
-- Front-running
-- Unauthorized withdrawals
+### 3. CCC Settlement
+Settlement via `cccSettle()` receives only encrypted outputs from the CCC enclave:
+```solidity
+function cccSettle(
+    bytes32 requestId,
+    bytes calldata encryptedBalances,   // Re-encrypted by enclave
+    bytes32 balanceHash,                // Integrity hash
+    bool recoverySucceeded,             // Boolean result
+    uint256 fillCount,                  // Number of fills (no amounts)
+    bytes calldata cccAttestation       // Quorum-signed by Workflow DON
+) external onlyRole(CCC_ENCLAVE_ROLE)
+```
 
-### 4. Privacy Guarantees
+### 4. Privacy Guarantees (CCC-enhanced)
 | Information | Visibility |
 |-------------|------------|
-| Request amount | Encrypted (TEE only) |
-| Market maker identity | Hidden until withdrawal |
-| Fill amount | Encrypted (TEE only) |
-| Shielded address | Public (but unlinkable) |
-| Final amount | Revealed at withdrawal only |
+| Request amount | CCC threshold encrypted (never on-chain) |
+| Market maker identity | Hidden inside CCC enclave |
+| Fill amount | CCC threshold encrypted (never on-chain) |
+| Fill price | Hidden inside CCC enclave |
+| Token transfers | CCC private token transfer (encrypted balance updates) |
+| Settlement result | Boolean + encrypted balance hash + CCC attestation |
 
 ## Usage
 
-### Creating a Recovery Request
+### Creating a Recovery Request (CCC Threshold Encrypted)
 
 ```typescript
-import { DarkPoolPrivateTxManager } from './DarkPoolPrivateTransactions';
+// 1. Encrypt deficit amount with CCC master public key (threshold encryption)
+// No single Vault DON node can decrypt — only a CCC compute enclave can
+const encryptedAmount = await cccThresholdEncrypt(deficitAmount);
 
-const manager = new DarkPoolPrivateTxManager(provider, signer);
+// 2. Generate shielded address
+const shieldedAddress = generateShieldedAddress();
 
-// 1. Generate shielded address
-const shieldedAddress = await manager.generateShieldedAddress();
-
-// 2. Create request
-const requestId = await manager.createRequest(
-  '10000',      // $10,000
+// 3. Submit to CREDarkPool
+const requestId = await darkPool.requestCollateral(
+  encryptedAmount,
   200,          // 2% premium
   3600,         // 1 hour timeout
   shieldedAddress
 );
 ```
 
-### Market Maker Fill
+### Market Maker Liquidity Deposit
 
 ```typescript
-// Market maker deposits to shielded address (off-chain via Vault)
-// TEE verifies and generates ticket
-
-await manager.submitConfidentialFill(
-  requestId,
-  encryptedAmount,
-  shieldedAddress,
-  teeAttestation,
-  withdrawalTicket
-);
+// Market makers deposit encrypted liquidity
+// The contract never sees the plaintext amount
+const encryptedDeposit = await cccThresholdEncrypt(depositAmount);
+const depositId = await darkPool.depositLiquidity(encryptedDeposit);
 ```
 
-### Withdrawal
+### CCC Settlement (Automated by CCC Enclave)
 
 ```typescript
-// Recovery agent withdraws using ticket
-await manager.withdrawWithTicket(
+// This is called by the CCC enclave after processing — not by users directly.
+// The enclave has:
+//   1. Decrypted deficit + market maker balances
+//   2. Matched orders and applied private token transfers
+//   3. Re-encrypted the updated balance table
+await darkPool.cccSettle(
   requestId,
-  tokenAddress,
-  amount,
-  withdrawalTicket
+  reencryptedBalanceTable,  // Opaque blob
+  balanceHash,              // Integrity hash
+  true,                     // recoverySucceeded
+  3,                        // fillCount (no amounts revealed)
+  cccAttestation            // Quorum-signed
 );
 ```
 
 ## Integration with Self-Healing Reserve
 
 The dark pool is called by the `RecoveryAgent` when:
-1. Reserve is undercollateralized
-2. Deficit exceeds $10K (threshold for dark pool vs. direct wallet)
+1. Reserve is undercollateralized (`isSolvent = false`)
+2. Deficit exceeds $50M (threshold for dark pool vs. direct wallet)
 3. Privacy is critical (avoid market signaling)
 
-```solidity
-// In RecoveryAgent.sol
-if (deficit > DARK_POOL_THRESHOLD) {
-    // Use confidential dark pool
-    darkPool.requestCollateral(
-        encryptedDeficit,
-        premiumBps,
-        timeout,
-        shieldedAddress
-    );
+```typescript
+// In agent/recovery.ts
+if (deficitAmount > 50_000_000) {
+    // Use CCC confidential dark pool
+    // 1. CCC threshold encrypt the deficit amount
+    // 2. Submit to CREDarkPool contract
+    // 3. CCC enclave matches + settles via private token transfer
+    // 4. On-chain: only encrypted hash + boolean + attestation
+    await executeDarkPoolRecovery(deficitAmount, config);
 } else {
     // Use direct wallet for small amounts
-    executeDirectRecovery(deficit);
+    await executeDirectRecovery(config);
 }
-```
-
-## API Authentication
-
-All calls to Chainlink CC APIs require EIP-712 signatures:
-
-```typescript
-const signature = await manager.generateApiSignature(
-  tokenAddress,
-  shieldedAddress
-);
-
-// Use signature in API call headers
-const response = await fetch(`${CC_API}/privateTokenTransfer`, {
-  headers: {
-    'X-Signature': signature
-  }
-});
 ```
 
 ## Deployment
 
 ### Prerequisites
 1. Deploy `CREDarkPool.sol`
-2. Set Vault contract address (Chainlink CC)
+2. Set Vault contract address (Chainlink CCC)
 3. Set Policy Engine address (ACE compliance)
-4. Grant TEE_VERIFIER_ROLE to Chainlink CRE oracle
+4. Grant `CCC_ENCLAVE_ROLE` to Chainlink CCC compute enclave
+5. Grant `TEE_VERIFIER_ROLE` to Chainlink CRE oracle
 
 ### Configuration
 ```bash
 export DARK_POOL_ADDRESS=0x...
 export VAULT_ADDRESS=0x...
-export TEE_PUBLIC_KEY=0x...
-export CC_API_URL=https://api.chainlink.confidential/v1
+export CCC_MASTER_PUBLIC_KEY=0x...  # CCC threshold master public key
 ```
 
 ## Testing
@@ -199,21 +196,21 @@ npx ts-node DarkPoolPrivateTransactions.ts
 
 ## Security Considerations
 
-1. **Encryption**: Use proper encryption (RSA/ECIES) with TEE public key
-2. **Replay Protection**: Tickets are one-time use
-3. **Expiration**: Requests timeout to prevent stale orders
-4. **Compliance**: ACE policy engine enforces regulatory rules
+1. **Threshold Encryption**: CCC master public key is threshold-shared — no single node can decrypt
+2. **Vault DON Quorum**: Re-encryption requires quorum of Vault DON nodes, protecting against individual node compromise
+3. **Enclave Attestation**: CCC enclave produces TEE attestation, verified by Workflow DON before quorum-signing
+4. **Replay Protection**: Settlement results indexed by request ID, tickets are one-time use
+5. **Expiration**: Requests timeout to prevent stale orders
+6. **Compliance**: ACE policy engine enforces regulatory rules
 
-## Next Steps
+## Simulation Note
 
-1. Deploy contracts to Sepolia
-2. Test integration with Chainlink CC sandbox
-3. Implement proper encryption for amounts
-4. Add ZK proof verification
-5. Create monitoring dashboard
+CCC is in Early Access (launched early 2026 via CRE). The CCC private token transfer operations are simulated with the same interface patterns. The ConfidentialHTTPClient for reserve verification is already live in production. Full CCC GA with decrypt/encrypt primitives is planned for later in 2026.
 
 ## References
 
-- [Chainlink Confidential Compute Docs](https://chain.link/confidential)
-- [Private Transactions Sandbox](https://confidential.chain.link)
+- [CCC Whitepaper](https://research.chain.link/confidential-compute.pdf)
+- [CCC Blog Post](https://blog.chain.link/chainlink-confidential-compute/)
+- [CRE SDK Reference](https://docs.chain.link/cre/reference/sdk/overview-ts)
+- [CRE Getting Started](https://docs.chain.link/cre/getting-started/overview)
 - [EIP-712 Standard](https://eips.ethereum.org/EIPS/eip-712)
