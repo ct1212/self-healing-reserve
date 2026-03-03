@@ -26,7 +26,7 @@ export async function simulateWorkflow(
   const reserves = await fetchReserves(apiUrl)
   console.log(`[workflow-sim] Reserves: ${JSON.stringify(reserves)}`)
 
-  // Simulate TEE-private comparison
+  // Simulate CRE off-chain comparison
   const isSolvent = reserves.totalReserve >= reserves.totalLiabilities
   console.log(`[workflow-sim] Attestation result: isSolvent=${isSolvent}`)
 

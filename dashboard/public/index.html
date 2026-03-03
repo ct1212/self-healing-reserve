@@ -1567,7 +1567,7 @@
   <p class="subtitle">Live Dashboard // Chainlink Runtime Environment + Autonomous Recovery</p>
 
   <p class="description">
-    A confidential alternative to transparent Proof of Reserve. In production, reserve balances flow from the custodian's private API directly into a Chainlink CRE Trusted Execution Environment. They never touch a public feed. The TEE verifies solvency and publishes only a boolean attestation on-chain. When undercollateralization is detected, an AI agent selects the optimal recovery strategy: direct Uniswap swaps for small deficits, or confidential dark pool execution via Chainlink Confidential Compute (CCC) for large ones, with end-to-end private token transfers where market impact matters. No human intervention required. This demo uses live Chainlink wBTC PoR data as a realistic simulation anchor.
+    A confidential alternative to transparent Proof of Reserve. In production, reserve balances flow from the custodian's private API directly into a Chainlink CRE workflow via ConfidentialHTTP. They never touch a public feed. The CRE workflow verifies solvency off-chain and publishes only a boolean attestation onchain. When undercollateralization is detected, an AI agent selects the optimal recovery strategy: direct Uniswap swaps for small deficits, or confidential dark pool execution via Chainlink Private Token Transfers for large ones, with end-to-end confidential settlement inside CCC enclaves where market impact matters. No human intervention required. This demo uses live Chainlink wBTC PoR data as a realistic simulation anchor.
   </p>
 
   <!-- Architecture Flow -->
@@ -1575,13 +1575,13 @@
     <div class="arch-step">
       <div class="arch-step-num">1</div>
       <div class="arch-label">Reserve API</div>
-      <div class="arch-desc">Private custodian API feeds reserve data into TEE</div>
+      <div class="arch-desc">Private custodian API feeds reserve data into CRE workflow</div>
     </div>
     <div class="arch-arrow">&rarr;</div>
     <div class="arch-step">
       <div class="arch-step-num">2</div>
-      <div class="arch-label">TEE Verification</div>
-      <div class="arch-desc">CRE workflow privately verifies solvency inside trusted enclave</div>
+      <div class="arch-label">CRE Verification</div>
+      <div class="arch-desc">CRE workflow privately verifies solvency off-chain via ConfidentialHTTP</div>
     </div>
     <div class="arch-arrow">&rarr;</div>
     <div class="arch-step">
@@ -1823,7 +1823,7 @@
     <div class="recovery-tab-content active" id="tab-cover">
       <div class="tab-cover-intro">
         <h2>Dual Recovery Architecture</h2>
-        <p>When the CRE TEE detects undercollateralization, an autonomous agent selects the optimal recovery path based on deficit size. Small deficits swap directly on-chain; large deficits route through a confidential dark pool where no one sees the order size, counterparties, or fill price.</p>
+        <p>When the CRE workflow detects undercollateralization, an autonomous agent selects the optimal recovery path based on deficit size. Small deficits swap directly on-chain; large deficits route through a confidential dark pool where no one sees the order size, counterparties, or fill price.</p>
         <p class="tab-cover-cta">Trigger a simulation above to see the recovery pipeline in action.</p>
       </div>
 
@@ -2006,7 +2006,7 @@
           <div class="dp-flow-step" id="dp-explain-3">
             <span class="dp-flow-icon">&#128737;</span>
             <div class="dp-flow-label">CCC Enclave Match + Transfer</div>
-            <div class="dp-flow-desc">Vault DON provides re-encrypted key shares. Enclave decrypts, matches orders, and settles via CCC private token transfer. Balances updated inside TEE.</div>
+            <div class="dp-flow-desc">Vault DON provides re-encrypted key shares. Enclave decrypts, matches orders, and settles via CCC private token transfer. Balances updated inside CCC enclave.</div>
             <span class="dp-flow-privacy private">&#128274; CCC Enclave</span>
           </div>
           <div class="dp-flow-arrow">&#10132;</div>

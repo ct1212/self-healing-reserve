@@ -1,12 +1,12 @@
 # Security Architecture
 
-This document explains the security model of the Self-Healing Reserve system, distinguishing between what runs inside a Trusted Execution Environment (TEE) in production and what is simulated in the demo.
+This document explains the security model of the Self-Healing Reserve system, distinguishing between what runs inside the CRE workflow and CCC enclaves in production versus what is simulated in the demo.
 
 ## Overview
 
 ```
 ┌─────────────────────────────────────────────────┐
-│  TEE (Chainlink DON)                            │
+│  CRE Workflow (Chainlink DON)                    │
 │                                                 │
 │  ┌───────────────┐    ┌──────────────────────┐  │
 │  │ ConfidentialHTTP│──▶│  Reserve comparison  │  │
@@ -29,23 +29,23 @@ This document explains the security model of the Self-Healing Reserve system, di
                         └────────────────────┘
 ```
 
-**Key principle:** This system is an **alternative** to transparent Proof of Reserve, not a layer on top of it. Reserve balances flow from the custodian's private API directly into the CRE TEE. They never touch a public feed. Only a boolean `isSolvent` attestation is published on-chain. For dark pool recovery, CCC private token transfers ensure that settlement amounts, counterparties, and transfer details also remain confidential. On-chain state contains only an encrypted balance hash + boolean + quorum-signed CCC attestation.
+**Key principle:** This system is an **alternative** to transparent Proof of Reserve, not a layer on top of it. Reserve balances flow from the custodian's private API directly into the CRE workflow via ConfidentialHTTP. They never touch a public feed. Only a boolean `isSolvent` attestation is published onchain. For dark pool recovery, CCC private token transfers ensure that settlement amounts, counterparties, and transfer details also remain confidential. On-chain state contains only an encrypted balance hash + boolean + quorum-signed CCC attestation.
 
-## What Runs in the TEE (Production)
+## What Runs in the CRE Workflow (Production)
 
-In a production deployment using Chainlink CRE (Compute Runtime Environment):
+In a production deployment using Chainlink CRE (Chainlink Runtime Environment):
 
-- **ConfidentialHTTP** fetches reserve data from the custodian API. The HTTP request and response are encrypted end-to-end and only visible inside the TEE enclave.
+- **ConfidentialHTTP** fetches reserve data from the custodian API. The HTTP request and response are encrypted end-to-end and only visible inside the CRE workflow.
 - **Secret API keys** are stored in the DON vault, referenced via `{{.SECRET_HEADER}}` template syntax. Keys are never present in source code or workflow configuration.
-- **Reserve comparison** (`totalReserve / totalLiabilities >= threshold`) executes entirely inside the enclave. No DON node operator can observe the intermediate values.
-- **Consensus** uses `consensusIdenticalAggregation` where multiple DON nodes independently compute the same result inside their respective TEEs and reach agreement.
-- **Output:** Only the boolean `isSolvent` result leaves the TEE, encoded into an on-chain transaction via `onReport()`.
+- **Reserve comparison** (`totalReserve / totalLiabilities >= threshold`) executes entirely off-chain within the CRE workflow. No DON node operator can observe the intermediate values.
+- **Consensus** uses `consensusIdenticalAggregation` where multiple DON nodes independently compute the same result inside their respective CRE runtime environments and reach agreement.
+- **Output:** Only the boolean `isSolvent` result leaves the CRE workflow, encoded into an onchain transaction via `onReport()`.
 
 ## What's Simulated in the Demo
 
-The demo (`npm run demo`) replicates the full architecture locally without a real TEE:
+The demo (`npm run demo`) replicates the full architecture locally without real CRE or CCC infrastructure:
 
-- **`demo/simulate-workflow.ts`** performs the same fetch-compare-attest logic that the CRE workflow would, but runs as a regular Node.js process. There is no enclave isolation.
+- **`demo/simulate-workflow.ts`** performs the same fetch-compare-attest logic that the CRE workflow would, but runs as a regular Node.js process. There is no CRE workflow isolation.
 - **Hardhat node** uses the well-known test mnemonic (`test test test ... junk`). These are deterministic test accounts with no real value.
 - **Mock API** (`mock-api/server.ts`) runs on `localhost:3001` with no authentication. In production, the API would require credentials stored in the DON vault.
 - **Recovery agent** runs in dry-run mode. Wallet commands are logged but never executed. No real funds are involved.
@@ -55,9 +55,9 @@ The demo (`npm run demo`) replicates the full architecture locally without a rea
 | Component | Demo | Production |
 |---|---|---|
 | Reserve data source | Public wBTC PoR feed (simulation anchor) | Private custodian API (confidential end-to-end) |
-| Reserve data fetch | Plain HTTP to localhost mock | ConfidentialHTTP inside TEE |
+| Reserve data fetch | Plain HTTP to localhost mock | ConfidentialHTTP inside CRE workflow |
 | API authentication | None | DON vault secret (`{{.SECRET_HEADER}}`) |
-| Reserve comparison | Local Node.js process | Inside TEE enclave |
+| Reserve comparison | Local Node.js process | Inside CRE workflow (off-chain) |
 | Consensus | Single process, no consensus | Multi-node DON consensus |
 | Blockchain | Hardhat (test mnemonic) | Ethereum mainnet/L2 |
 | Attestation write | `updateAttestation()` direct call | `onReport()` via DON |
@@ -112,7 +112,7 @@ The dark pool settlement uses Chainlink Confidential Compute (CCC), which provid
 | Data | Visibility |
 |---|---|
 | `isSolvent` boolean | Public on-chain (ReserveAttestation.sol) |
-| Reserve amounts | Never on-chain (stays in CRE TEE) |
+| Reserve amounts | Never onchain (stays in CRE workflow) |
 | Dark pool order amount | Never on-chain (CCC threshold encrypted) |
 | Market maker identities | Never on-chain (inside CCC enclave only) |
 | Fill prices | Never on-chain (inside CCC enclave only) |
@@ -126,11 +126,11 @@ CCC is in Early Access (launched early 2026). The CCC private token transfer ope
 
 ## Threat Model
 
-### Single-TEE vs Threshold Encryption
+### CRE-Only vs CCC Threshold Encryption
 
-The move from single-TEE encryption (CRE alone) to CCC threshold encryption fundamentally changes the threat model:
+The move from CRE-only workflows to CCC threshold encryption fundamentally changes the threat model:
 
-| Threat | Single-TEE (CRE only) | Threshold Encryption (CCC) |
+| Threat | CRE Only | Threshold Encryption (CCC) |
 |---|---|---|
 | Compromised enclave | Attacker sees all data processed by that enclave | Attacker sees only data assigned to that enclave after compromise. Master key is never present |
 | Compromised DON node | Node operator could observe inputs/outputs | Node holds only a key share and cannot decrypt alone. Quorum required. |
@@ -148,7 +148,7 @@ The move from single-TEE encryption (CRE alone) to CCC threshold encryption fund
 
 ### Demo-Specific Considerations
 
-- **Mock API manipulation**: In the demo, anyone on localhost can call `/toggle` or `/set-reserves` to change the reported reserve state. In production, the custodian API is authenticated and the TEE prevents MITM attacks on the data path.
+- **Mock API manipulation**: In the demo, anyone on localhost can call `/toggle` or `/set-reserves` to change the reported reserve state. In production, the custodian API is authenticated and ConfidentialHTTP prevents MITM attacks on the data path.
 - **Contract ownership**: The `ReserveAttestation` contract restricts `updateAttestation()` to the deployer. In production, only the DON's `onReport()` callback can update the attestation.
 - **Agent autonomy**: The agent acts only on verified on-chain events (not on API data directly). An undercollateralized API response alone does not trigger recovery. It must first be attested on-chain by the CRE workflow.
 - **Simulated CCC operations**: In the demo, CCC threshold encryption and private token transfers are simulated with the correct interfaces but without real cryptographic operations. The security properties described above apply only to production CCC deployments.

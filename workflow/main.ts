@@ -67,7 +67,7 @@ const onCronTrigger = (runtime: Runtime<Config>) => {
 		)(runtime.config)
 		.result()
 
-	// TEE-private comparison: reserves vs liabilities
+	// CRE off-chain comparison: reserves vs liabilities
 	const ratio = reserves.totalReserve / reserves.totalLiabilities
 	const isSolvent = ratio >= runtime.config.threshold
 
@@ -75,7 +75,7 @@ const onCronTrigger = (runtime: Runtime<Config>) => {
 		`Reserve check complete: ratio=${ratio.toFixed(4)}, solvent=${isSolvent}`
 	)
 
-	// Only the boolean attestation leaves the TEE
+	// Only the boolean attestation leaves the CRE workflow
 	return {
 		result: { isSolvent },
 	}

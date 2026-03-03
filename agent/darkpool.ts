@@ -148,7 +148,7 @@ export async function executeDarkPoolRecovery(
         cccAttestation: fillResult.attestation.slice(0, 30) + '...',
         matchedMakers: 3,  // Number of MMs (identities hidden in enclave)
         settlement: 'CCC Private Token Transfer',
-        // Enclave debited market makers, credited reserve, all inside TEE
+        // Enclave debited market makers, credited reserve, all inside CCC enclave
         // Updated balance table re-encrypted, no plaintext ever leaves
       }
     });

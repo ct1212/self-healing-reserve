@@ -1,6 +1,6 @@
 # CRE Powered Self-Healing Reserve
 
-**A confidential alternative to transparent Proof of Reserve.** Reserve balances flow from the custodian's private API directly into a Chainlink CRE Trusted Execution Environment. They never touch a public feed. The TEE verifies solvency and publishes only a boolean attestation on-chain. When undercollateralization is detected, an AI agent autonomously recovers, whether via direct Uniswap swaps for small deficits or confidential dark pool execution with CCC private token transfers for large ones. No human intervention required.
+**A confidential alternative to transparent Proof of Reserve.** Reserve balances flow from the custodian's private API directly into a Chainlink CRE workflow via ConfidentialHTTP. They never touch a public feed. The CRE workflow verifies solvency off-chain and publishes only a boolean attestation onchain. When undercollateralization is detected, an AI agent autonomously recovers, whether via direct Uniswap swaps for small deficits or confidential dark pool execution with Chainlink Private Token Transfers for large ones. No human intervention required.
 
 **[Live Demo](https://self-healing-reserve.vercel.app)** | Built for **Chainlink Convergence Hackathon 2026**
 
@@ -23,19 +23,19 @@ Existing Chainlink Proof of Reserve feeds publish exact reserve ratios on a publ
 
 When a reserve drops below 100%, the exact shortfall is immediately visible. Competitors see the deficit. Traders front-run the recovery. MEV bots extract value from every rebalancing swap. The market reads the ratio as a distress signal and panic selling begins, all before the reserve manager can fix the problem.
 
-This project proposes an **alternative architecture** for Proof of Reserve, designed for assets where crisis resilience matters more than public ratio granularity. In production, the custodian's reserve API feeds directly into the CRE TEE. No public feed is ever involved. The live demo uses real Chainlink wBTC PoR data as a realistic simulation anchor, but in a production deployment, that data path would be entirely private.
+This project proposes an **alternative architecture** for Proof of Reserve, designed for assets where crisis resilience matters more than public ratio granularity. In production, the custodian's reserve API feeds directly into the CRE workflow via ConfidentialHTTP. No public feed is ever involved. The live demo uses real Chainlink wBTC PoR data as a realistic simulation anchor, but in a production deployment, that data path would be entirely private.
 
-The tradeoff is explicit: less granularity for the public (boolean instead of ratio), but the same trustless verification (TEE attestation), with dramatically better crisis resilience.
+The tradeoff is explicit: less granularity for the public (boolean instead of ratio), but the same trustless verification (CRE attestation with DON consensus), with dramatically better crisis resilience.
 
 ## The Solution: Confidential Verification + Autonomous Recovery
 
 Self-Healing Reserve keeps reserve balances confidential while still providing trustless on-chain proof of solvency.
 
 ```
-Custodian API ──▶ CRE Workflow (inside TEE) ──▶ On-chain: isSolvent = true/false
+Custodian API ──▶ CRE Workflow (off-chain) ──▶ Onchain: isSolvent = true/false
                       │                                         │
                       │ Balances NEVER leave                    │ Agent watches
-                      │ the enclave                             │ this event
+                      │ the CRE workflow                        │ this event
                       │                                         ▼
                       │                              Recovery Agent
                       │                              (autonomous wallet)
@@ -45,13 +45,13 @@ Custodian API ──▶ CRE Workflow (inside TEE) ──▶ On-chain: isSolvent 
                 reaches the blockchain             based on deficit size
 ```
 
-**The key insight:** No sensitive data ever reaches the public chain. Reserve balances stay inside the CRE TEE during verification. Dark pool order amounts, counterparties, and fill prices stay inside the CCC enclave during recovery. Token transfers use CCC private token transfers during settlement. The only public artifacts are a boolean solvency attestation and an encrypted balance hash.
+**The key insight:** No sensitive data ever reaches the public chain. Reserve balances stay inside the CRE workflow during verification. Dark pool order amounts, counterparties, and fill prices stay inside the CCC enclave during recovery. Token transfers use CCC private token transfers during settlement. The only public artifacts are a boolean solvency attestation and an encrypted balance hash.
 
 ## Why CRE + CCC Changes Everything
 
 Without CRE and CCC, proof-of-reserve is a tradeoff between transparency and stability. With them:
 
-- **Verification is trustless.** The TEE ensures the comparison is honest, even though the inputs are hidden
+- **Verification is trustless.** The CRE workflow with DON consensus ensures the comparison is honest, even though the inputs are hidden
 - **Recovery is private.** No one knows how much is being rebalanced, or through which venue
 - **Settlement is confidential.** CCC private token transfers mean the actual wBTC movements are encrypted on-chain, not just the computation
 - **Market impact is zero.** Competitors, traders, and MEV bots can't front-run what they can't see
@@ -129,7 +129,7 @@ The key tradeoff: the dark pool requires pre-positioned capital, which means ong
 
 ## Live Dashboard
 
-The **[live demo dashboard](https://self-healing-reserve.vercel.app)** uses real **Chainlink wBTC Proof of Reserve** data from Ethereum mainnet as a simulation anchor. In production, this data would flow from the custodian's private API directly into the CRE TEE, never via a public feed.
+The **[live demo dashboard](https://self-healing-reserve.vercel.app)** uses real **Chainlink wBTC Proof of Reserve** data from Ethereum mainnet as a simulation anchor. In production, this data would flow from the custodian's private API directly into the CRE workflow via ConfidentialHTTP, never via a public feed.
 
 Three simulation scenarios demonstrate the system end-to-end:
 
@@ -159,9 +159,9 @@ The demo starts a local Hardhat node, deploys contracts, and runs the dashboard 
 `workflow/main.ts` follows the CRE SDK `typescriptConfHTTP` pattern:
 
 1. `ConfidentialHTTPClient` fetches reserve data from the custodian's private API (encrypted end-to-end)
-2. Compares reserves vs liabilities **inside the TEE**
+2. Compares reserves vs liabilities **off-chain within the CRE workflow**
 3. `consensusIdenticalAggregation` across DON nodes
-4. Returns only `{isSolvent: boolean}`. Balances never leave the enclave
+4. Returns only `{isSolvent: boolean}`. Balances never leave the CRE workflow
 
 ## CCC Settlement Workflow
 
@@ -187,14 +187,14 @@ Uses an MPC wallet (no raw private keys exposed to the agent). Dry-run mode by d
 
 ## Security
 
-See [SECURITY.md](SECURITY.md) for the full security architecture, including what runs inside the TEE/CCC enclave in production vs what is simulated in the demo.
+See [SECURITY.md](SECURITY.md) for the full security architecture, including what runs inside the CRE workflow and CCC enclave in production vs what is simulated in the demo.
 
 ### Privacy Model
 
 | Data | Visibility |
 | --- | --- |
 | `isSolvent` boolean | Public on-chain |
-| Reserve amounts | Never on-chain (CRE TEE only) |
+| Reserve amounts | Never onchain (CRE workflow only) |
 | Dark pool order amount | Never on-chain (CCC threshold encrypted) |
 | Market maker identities | Never on-chain (CCC enclave only) |
 | Fill prices | Never on-chain (CCC enclave only) |
@@ -207,14 +207,14 @@ See [SECURITY.md](SECURITY.md) for the full security architecture, including wha
 
 The demo uses real Chainlink wBTC PoR data as a simulation anchor and simulates CCC operations with the correct interfaces. In production:
 
-- Reserve data flows from the custodian's private API into the CRE TEE, never via a public PoR feed
+- Reserve data flows from the custodian's private API into the CRE workflow via ConfidentialHTTP, never via a public PoR feed
 - CCC threshold encryption replaces simulated encryption. The Vault DON manages the master key
 - Dark pool settlement uses real CCC private token transfers with encrypted balance tables and enclave attestation
 - ZK proofs provide additional settlement verification (optional, layered on CCC attestation)
 
 ## Stack
 
-- **Chainlink CRE**: Chainlink Runtime Environment (TEE-based workflow orchestration)
+- **Chainlink CRE**: Chainlink Runtime Environment (off-chain workflow orchestration)
 - **Chainlink Confidential Compute (CCC)**: Threshold encryption + private token transfers for dark pool settlement
 - **Chainlink Proof of Reserve**: Live wBTC PoR feed on Ethereum mainnet (simulation anchor)
 - **MPC wallet**: Autonomous agent wallet (no raw private keys)

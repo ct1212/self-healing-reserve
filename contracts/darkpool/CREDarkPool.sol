@@ -48,7 +48,7 @@ contract CREDarkPool is AccessControl, ReentrancyGuard {
         uint256 premiumBps;             // Incentive for market makers
         uint256 timeout;
         RequestStatus status;
-        bytes32 withdrawalTicket;       // TEE-generated ticket for withdrawal
+        bytes32 withdrawalTicket;       // CCC enclave-generated ticket for withdrawal
         uint256 createdAt;
     }
 
@@ -222,12 +222,12 @@ contract CREDarkPool is AccessControl, ReentrancyGuard {
     }
     
     /**
-     * @notice Submit confidential fill (called by TEE via CRE)
+     * @notice Submit confidential fill (called by CCC enclave via CRE)
      * @dev Market maker has deposited to shielded address off-chain
      * @param requestId The request being filled
      * @param encryptedAmount Fill amount (encrypted)
      * @param shieldedAddress The shielded address that received funds
-     * @param teeAttestation TEE proof of deposit to shielded address
+     * @param teeAttestation CCC enclave attestation of deposit to shielded address
      * @param withdrawalTicket Ticket for recovery agent to withdraw
      */
     function confidentialFill(
@@ -290,7 +290,7 @@ contract CREDarkPool is AccessControl, ReentrancyGuard {
      * @dev Called by the CCC enclave (via Workflow DON) after processing a recovery.
      *      The enclave has:
      *        1. Decrypted the deficit amount and market maker balances
-     *        2. Matched orders and applied transfers inside the TEE
+     *        2. Matched orders and applied transfers inside the CCC enclave
      *        3. Re-encrypted the updated balance table
      *      This function receives ONLY:
      *        - The re-encrypted balance table (opaque blob)
@@ -368,14 +368,14 @@ contract CREDarkPool is AccessControl, ReentrancyGuard {
     }
 
     /**
-     * @notice Withdraw filled collateral using TEE ticket
+     * @notice Withdraw filled collateral using CCC-generated ticket
      * @dev This is the ONLY point where amount is revealed on-chain.
      *      With full CCC private token transfers, this function becomes optional —
      *      settlement happens entirely within the encrypted balance table.
      * @param requestId Request to withdraw from
      * @param token Token being withdrawn
      * @param amount Amount to withdraw (revealed here)
-     * @param ticket Cryptographic ticket from TEE
+     * @param ticket Cryptographic ticket from CCC enclave
      */
     function withdrawWithTicket(
         bytes32 requestId,
@@ -478,7 +478,7 @@ contract CREDarkPool is AccessControl, ReentrancyGuard {
     
     /**
      * @notice Generate EIP-712 signature for API authentication
-     * @dev Used when calling off-chain TEE APIs
+     * @dev Used when calling off-chain CCC APIs
      */
     function getApiSignature(
         address token,
