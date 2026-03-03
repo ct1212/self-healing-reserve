@@ -95,7 +95,7 @@ Onchain: encrypted balance hash + boolean success + CCC attestation
     PRIVATE: How much, from whom, at what price, which balances changed
 ```
 
-Key difference from the previous architecture: the encryption uses CCC **threshold encryption** via the Vault DON, not a single public key held by one enclave. The master decryption key is secret-shared across decryption nodes. No single node can ever decrypt alone. This means even if a single enclave or node is compromised, the private data remains secure.
+Key difference from the previous architecture: the encryption uses CCC **threshold encryption** via the Vault DON, not a single TEE public key. The master decryption key is secret-shared across decryption nodes. No single node can ever decrypt alone. This means even if a single enclave or node is compromised, the private data remains secure.
 
 ### Dark Pool Liquidity: How Capital Is Ready When Needed
 
