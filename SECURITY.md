@@ -17,7 +17,7 @@ This document explains the security model of the Self-Healing Reserve system, di
 └──────────────────────────────────┼──────────────┘
                                    ▼
                         ┌────────────────────┐
-                        │  On-chain:         │
+                        │  Onchain:         │
                         │  isSolvent = bool  │    ◀── public
                         │  ReserveStatusUpdated()│
                         └────────┬───────────┘
@@ -29,7 +29,7 @@ This document explains the security model of the Self-Healing Reserve system, di
                         └────────────────────┘
 ```
 
-**Key principle:** This system is an **alternative** to transparent Proof of Reserve, not a layer on top of it. Reserve balances flow from the custodian's private API directly into the CRE workflow via ConfidentialHTTP. They never touch a public feed. Only a boolean `isSolvent` attestation is published onchain. For dark pool recovery, CCC private token transfers ensure that settlement amounts, counterparties, and transfer details also remain confidential. On-chain state contains only an encrypted balance hash + boolean + quorum-signed CCC attestation.
+**Key principle:** This system is an **alternative** to transparent Proof of Reserve, not a layer on top of it. Reserve balances flow from the custodian's private API directly into the CRE workflow via ConfidentialHTTP. They never touch a public feed. Only a boolean `isSolvent` attestation is published onchain. For dark pool recovery, CCC private token transfers ensure that settlement amounts, counterparties, and transfer details also remain confidential. Onchain state contains only an encrypted balance hash + boolean + quorum-signed CCC attestation.
 
 ## What Runs in the CRE Workflow (Production)
 
@@ -104,22 +104,22 @@ The dark pool settlement uses Chainlink Confidential Compute (CCC), which provid
 - CCC private token transfers use an **account-based** model (more efficient than UTXO-based privacy)
 - The contract stores an **encrypted balance table** with balances encrypted under the CCC master public key
 - Transfers happen entirely inside the CCC enclave: decrypt balances → apply debits/credits → re-encrypt
-- On-chain, only the encrypted balance table blob and a hash are stored
-- No plaintext amounts, sender/receiver identities, or transfer details are ever visible on-chain
+- Onchain, only the encrypted balance table blob and a hash are stored
+- No plaintext amounts, sender/receiver identities, or transfer details are ever visible onchain
 
 ### Data Visibility After CCC Integration
 
 | Data | Visibility |
 |---|---|
-| `isSolvent` boolean | Public on-chain (ReserveAttestation.sol) |
+| `isSolvent` boolean | Public onchain (ReserveAttestation.sol) |
 | Reserve amounts | Never onchain (stays in CRE workflow) |
-| Dark pool order amount | Never on-chain (CCC threshold encrypted) |
-| Market maker identities | Never on-chain (inside CCC enclave only) |
-| Fill prices | Never on-chain (inside CCC enclave only) |
-| Token transfer amounts | Never on-chain (CCC private token transfer) |
-| Updated balance table | On-chain as encrypted blob + hash only |
-| Recovery succeeded | Public on-chain (boolean) |
-| CCC attestation | Public on-chain (proves computation was correct) |
+| Dark pool order amount | Never onchain (CCC threshold encrypted) |
+| Market maker identities | Never onchain (inside CCC enclave only) |
+| Fill prices | Never onchain (inside CCC enclave only) |
+| Token transfer amounts | Never onchain (CCC private token transfer) |
+| Updated balance table | Onchain as encrypted blob + hash only |
+| Recovery succeeded | Public onchain (boolean) |
+| CCC attestation | Public onchain (proves computation was correct) |
 
 ### Simulation Note
 CCC is in Early Access (launched early 2026). The CCC private token transfer operations in this project are simulated with the same interface patterns. The ConfidentialHTTPClient for reserve verification is already live. Full CCC GA with decrypt/encrypt primitives is planned for later in 2026.
@@ -143,12 +143,12 @@ The move from CRE-only workflows to CCC threshold encryption fundamentally chang
 
 - **Enclave assignment**: The Workflow DON assigns compute enclaves from a pool. An attacker who compromises one enclave cannot predict which future requests will be routed to it, limiting the blast radius.
 - **Attestation verification**: The Workflow DON quorum-signs CCC results before they reach the chain. A compromised enclave producing incorrect results would fail attestation verification. The quorum acts as a second line of defense.
-- **Encrypted state on-chain**: The CREDarkPool contract stores only encrypted balance table blobs. Even with full chain access, an observer cannot determine individual market maker balances, order sizes, or transfer amounts.
+- **Encrypted state onchain**: The CREDarkPool contract stores only encrypted balance table blobs. Even with full chain access, an observer cannot determine individual market maker balances, order sizes, or transfer amounts.
 - **Graceful failure privacy**: When the dark pool fails (insufficient liquidity), the failure is reported without revealing the order size or the pool's total capacity. An observer learns only that a recovery was attempted and failed, not why or how large the gap was.
 
 ### Demo-Specific Considerations
 
 - **Mock API manipulation**: In the demo, anyone on localhost can call `/toggle` or `/set-reserves` to change the reported reserve state. In production, the custodian API is authenticated and ConfidentialHTTP prevents MITM attacks on the data path.
 - **Contract ownership**: The `ReserveAttestation` contract restricts `updateAttestation()` to the deployer. In production, only the DON's `onReport()` callback can update the attestation.
-- **Agent autonomy**: The agent acts only on verified on-chain events (not on API data directly). An undercollateralized API response alone does not trigger recovery. It must first be attested on-chain by the CRE workflow.
+- **Agent autonomy**: The agent acts only on verified onchain events (not on API data directly). An undercollateralized API response alone does not trigger recovery. It must first be attested onchain by the CRE workflow.
 - **Simulated CCC operations**: In the demo, CCC threshold encryption and private token transfers are simulated with the correct interfaces but without real cryptographic operations. The security properties described above apply only to production CCC deployments.

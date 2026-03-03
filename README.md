@@ -29,7 +29,7 @@ The tradeoff is explicit: less granularity for the public (boolean instead of ra
 
 ## The Solution: Confidential Verification + Autonomous Recovery
 
-Self-Healing Reserve keeps reserve balances confidential while still providing trustless on-chain proof of solvency.
+Self-Healing Reserve keeps reserve balances confidential while still providing trustless onchain proof of solvency.
 
 ```
 Custodian API ──▶ CRE Workflow (off-chain) ──▶ Onchain: isSolvent = true/false
@@ -53,7 +53,7 @@ Without CRE and CCC, proof-of-reserve is a tradeoff between transparency and sta
 
 - **Verification is trustless.** The CRE workflow with DON consensus ensures the comparison is honest, even though the inputs are hidden
 - **Recovery is private.** No one knows how much is being rebalanced, or through which venue
-- **Settlement is confidential.** CCC private token transfers mean the actual wBTC movements are encrypted on-chain, not just the computation
+- **Settlement is confidential.** CCC private token transfers mean the actual wBTC movements are encrypted onchain, not just the computation
 - **Market impact is zero.** Competitors, traders, and MEV bots can't front-run what they can't see
 - **Confidence is maintained.** The public sees "solvent" or "insolvent" without the noise of partial ratios
 
@@ -63,7 +63,7 @@ The agent intelligently selects the optimal recovery method based on deficit siz
 
 | Mechanism | When | How | Visibility |
 | --- | --- | --- | --- |
-| **Direct Wallet Swap** | Small deficits (<$50M) | Agent swaps USDC → wBTC on Uniswap | Public on-chain txs |
+| **Direct Wallet Swap** | Small deficits (<$50M) | Agent swaps USDC → wBTC on Uniswap | Public onchain txs |
 | **CCC Confidential Dark Pool** | Large deficits (>$50M) | CCC threshold-encrypted matching + private token settlement | Only boolean result + encrypted hash public |
 
 ### Why two mechanisms?
@@ -90,12 +90,12 @@ CCC Compute Enclave
     └── Produces attestation over result
     │
     ▼
-On-chain: encrypted balance hash + boolean success + CCC attestation
+Onchain: encrypted balance hash + boolean success + CCC attestation
     PUBLIC:  "Recovery executed successfully" + encrypted state hash
     PRIVATE: How much, from whom, at what price, which balances changed
 ```
 
-Key difference from the previous architecture: the encryption uses CCC **threshold encryption** via the Vault DON, not a single TEE public key. The master decryption key is secret-shared across decryption nodes. No single node can ever decrypt alone. This means even if a single enclave or node is compromised, the private data remains secure.
+Key difference from the previous architecture: the encryption uses CCC **threshold encryption** via the Vault DON, not a single public key held by one enclave. The master decryption key is secret-shared across decryption nodes. No single node can ever decrypt alone. This means even if a single enclave or node is compromised, the private data remains secure.
 
 ### Dark Pool Liquidity: How Capital Is Ready When Needed
 
@@ -122,7 +122,7 @@ The key tradeoff: the dark pool requires pre-positioned capital, which means ong
 | **Transaction Visibility** | Fully Public | Boolean + Encrypted Hash |
 | **Market Impact** | Moderate Slippage | Zero |
 | **MEV Protection** | None | Full (CCC + Threshold Encryption) |
-| **Amount Privacy** | Exposed On-Chain | CCC Threshold Encrypted |
+| **Amount Privacy** | Exposed Onchain | CCC Threshold Encrypted |
 | **Token Transfer Privacy** | None (Public ERC-20 Transfers) | Full (CCC Private Token Transfer) |
 | **Speed** | ~300ms | ~2.2s |
 | **Complexity** | Low (3 steps) | High (4 steps + CCC), fully automated |
@@ -150,7 +150,7 @@ The demo starts a local Hardhat node, deploys contracts, and runs the dashboard 
 
 ## Smart Contracts
 
-**ReserveAttestation.sol**: On-chain boolean attestation. The CRE workflow calls `onReport()` to write `isSolvent`. The agent monitors `ReserveStatusUpdated(bool, uint256)` events.
+**ReserveAttestation.sol**: Onchain boolean attestation. The CRE workflow calls `onReport()` to write `isSolvent`. The agent monitors `ReserveStatusUpdated(bool, uint256)` events.
 
 **CREDarkPool.sol**: Confidential dark pool with CCC private token settlement. `requestCollateral()` accepts orders encrypted with the CCC master public key (threshold encryption). `confidentialFill()` settles with a CCC-attested encrypted balance table update. No plaintext amounts ever touch the chain. Runs in simulation mode pending full CCC General Access availability.
 
@@ -172,7 +172,7 @@ The dark pool settlement uses Chainlink Confidential Compute for end-to-end priv
 3. Vault DON re-encrypts inputs for the assigned CCC compute enclave
 4. Enclave decrypts order + market maker balances, matches fills, applies transfers
 5. Enclave re-encrypts updated balance table, returns encrypted state + boolean + attestation
-6. On-chain: only the encrypted balance hash, boolean success, and CCC attestation are stored
+6. Onchain: only the encrypted balance hash, boolean success, and CCC attestation are stored
 
 In simulation mode, the CCC operations are simulated with the correct interfaces and data flows. The workflow is designed to be a drop-in upgrade when CCC General Access launches.
 
@@ -181,7 +181,7 @@ In simulation mode, the CCC operations are simulated with the correct interfaces
 Monitors `ReserveStatusUpdated` events and selects recovery mechanism:
 
 - **Small deficits**: Check wallet balance → Swap USDC → wBTC on Uniswap → Send to reserve
-- **Large deficits**: Encrypt order with CCC master public key → Submit to dark pool → CCC enclave matching → Private token settlement → Encrypted state on-chain
+- **Large deficits**: Encrypt order with CCC master public key → Submit to dark pool → CCC enclave matching → Private token settlement → Encrypted state onchain
 
 Uses an MPC wallet (no raw private keys exposed to the agent). Dry-run mode by default.
 
@@ -193,15 +193,15 @@ See [SECURITY.md](SECURITY.md) for the full security architecture, including wha
 
 | Data | Visibility |
 | --- | --- |
-| `isSolvent` boolean | Public on-chain |
+| `isSolvent` boolean | Public onchain |
 | Reserve amounts | Never onchain (CRE workflow only) |
-| Dark pool order amount | Never on-chain (CCC threshold encrypted) |
-| Market maker identities | Never on-chain (CCC enclave only) |
-| Fill prices | Never on-chain (CCC enclave only) |
-| Token transfer amounts | Never on-chain (CCC private token transfer) |
-| Updated balance table | On-chain as encrypted hash only |
-| Recovery succeeded | Public on-chain (boolean) |
-| CCC attestation | Public on-chain (proves computation was correct) |
+| Dark pool order amount | Never onchain (CCC threshold encrypted) |
+| Market maker identities | Never onchain (CCC enclave only) |
+| Fill prices | Never onchain (CCC enclave only) |
+| Token transfer amounts | Never onchain (CCC private token transfer) |
+| Updated balance table | Onchain as encrypted hash only |
+| Recovery succeeded | Public onchain (boolean) |
+| CCC attestation | Public onchain (proves computation was correct) |
 
 ### Simulation vs Production
 

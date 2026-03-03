@@ -1586,7 +1586,7 @@
     <div class="arch-arrow">&rarr;</div>
     <div class="arch-step">
       <div class="arch-step-num">3</div>
-      <div class="arch-label">On-Chain Attestation</div>
+      <div class="arch-label">Onchain Attestation</div>
       <div class="arch-desc">Boolean solvency result published to smart contract</div>
     </div>
     <div class="arch-arrow">&rarr;</div>
@@ -1702,7 +1702,7 @@
         <div class="dp-live-step-time" id="ds-step-1-time"></div>
       </div>
       <div class="dp-live-step waiting" id="ds-step-2">
-        <span class="privacy-tag" style="background:rgba(234,179,8,0.15);color:#eab308;">On-Chain</span>
+        <span class="privacy-tag" style="background:rgba(234,179,8,0.15);color:#eab308;">Onchain</span>
         <div class="dp-live-step-num">Step 2</div>
         <div class="dp-live-step-icon">&#128260;</div>
         <div class="dp-live-step-name">Swap</div>
@@ -1734,7 +1734,7 @@
         <span class="data-value" id="ds-data-amount" style="color:#555;">Pending...</span>
       </div>
       <div class="data-row">
-        <span class="data-label">On-Chain Visibility</span>
+        <span class="data-label">Onchain Visibility</span>
         <span class="data-value" id="ds-data-visibility" style="color:#eab308;">All transactions public</span>
       </div>
     </div>
@@ -1800,7 +1800,7 @@
         <span class="data-value hidden-val" id="dp-data-settlement">&#128274; CCC Private Token Transfer</span>
       </div>
       <div class="data-row">
-        <span class="data-label">On-Chain Proof</span>
+        <span class="data-label">Onchain Proof</span>
         <span class="data-value" id="dp-data-proof" style="color:#555;">Pending...</span>
       </div>
       <div class="data-row">
@@ -1823,7 +1823,7 @@
     <div class="recovery-tab-content active" id="tab-cover">
       <div class="tab-cover-intro">
         <h2>Dual Recovery Architecture</h2>
-        <p>When the CRE workflow detects undercollateralization, an autonomous agent selects the optimal recovery path based on deficit size. Small deficits swap directly on-chain; large deficits route through a confidential dark pool where no one sees the order size, counterparties, or fill price.</p>
+        <p>When the CRE workflow detects undercollateralization, an autonomous agent selects the optimal recovery path based on deficit size. Small deficits swap directly onchain; large deficits route through a confidential dark pool where no one sees the order size, counterparties, or fill price.</p>
         <p class="tab-cover-cta">Trigger a simulation above to see the recovery pipeline in action.</p>
       </div>
 
@@ -1852,7 +1852,7 @@
           </div>
           <div class="mech-attr">
             <span class="mech-attr-label">Amount Privacy</span>
-            <span class="mech-attr-value bad">Exposed On-Chain</span>
+            <span class="mech-attr-value bad">Exposed Onchain</span>
           </div>
           <div class="mech-attr">
             <span class="mech-attr-label">Token Transfer Privacy</span>
@@ -1913,7 +1913,7 @@
     <div class="recovery-tab-content" id="tab-direct">
       <div class="mechanism-explainer directswap-explainer" id="directswap-explainer">
         <h2>Direct Wallet Swap Recovery</h2>
-        <p class="ds-subtitle">For deficits under $50M, the agent executes a fast 3-step recovery using a direct on-chain swap via Uniswap &mdash; simple, fast, and fully transparent.</p>
+        <p class="ds-subtitle">For deficits under $50M, the agent executes a fast 3-step recovery using a direct onchain swap via Uniswap &mdash; simple, fast, and fully transparent.</p>
 
         <div class="ds-why">
           <div class="ds-why-when">
@@ -1928,7 +1928,7 @@
           <div class="ds-why-how">
             <h3>How It Works</h3>
             <ul>
-              <li>Agent wallet USDC balance is checked on-chain</li>
+              <li>Agent wallet USDC balance is checked onchain</li>
               <li>Swap routed through Uniswap V3 for best rate</li>
               <li>Recovered wBTC sent directly to the reserve</li>
               <li>Full transaction trail visible on Etherscan</li>
@@ -1973,7 +1973,7 @@
             <ul>
               <li>Large swaps on Uniswap move the market</li>
               <li>MEV bots front-run recovery transactions</li>
-              <li>Competitors see exact deficit amount on-chain</li>
+              <li>Competitors see exact deficit amount onchain</li>
               <li>Token transfers reveal amounts and counterparties</li>
             </ul>
           </div>
@@ -1983,7 +1983,7 @@
               <li>Order amount CCC threshold-encrypted (no single node can decrypt)</li>
               <li>Vault DON re-encrypts inputs for assigned CCC enclave</li>
               <li>Settlement via CCC private token transfer inside enclave</li>
-              <li>On-chain: only encrypted balance hash + boolean + attestation</li>
+              <li>Onchain: only encrypted balance hash + boolean + attestation</li>
             </ul>
           </div>
         </div>
@@ -2013,7 +2013,7 @@
           <div class="dp-flow-step" id="dp-explain-4">
             <span class="dp-flow-icon">&#9989;</span>
             <div class="dp-flow-label">CCC Attestation</div>
-            <div class="dp-flow-desc">Enclave re-encrypts updated balance table. On-chain receives only: encrypted balance hash + boolean &ldquo;recovery succeeded&rdquo; + quorum-signed CCC attestation.</div>
+            <div class="dp-flow-desc">Enclave re-encrypts updated balance table. Onchain receives only: encrypted balance hash + boolean &ldquo;recovery succeeded&rdquo; + quorum-signed CCC attestation.</div>
             <span class="dp-flow-privacy public">&#10003; Quorum-Signed</span>
           </div>
         </div>
@@ -2040,7 +2040,7 @@
             <h3>What Happens Next</h3>
             <ul>
               <li>Reserve stays undercollateralized &mdash; no automatic fallback</li>
-              <li>On-chain attestation still reads <code>isSolvent = false</code></li>
+              <li>Onchain attestation still reads <code>isSolvent = false</code></li>
               <li>Manual intervention required: add liquidity providers or retry with different parameters</li>
               <li>Privacy preserved &mdash; no one learned the order size or that the pool was insufficient</li>
             </ul>
@@ -2137,7 +2137,7 @@
       encryptRequest: { name: 'CCC Threshold Encrypt', desc: 'Encrypt deficit with CCC master public key (threshold encryption)' },
       submitToPool: { name: 'Submit to Dark Pool', desc: 'Submit encrypted order to CCC confidential dark pool' },
       monitorFill: { name: 'CCC Enclave Match + Transfer', desc: 'CCC enclave matches orders and settles via private token transfer' },
-      settle: { name: 'CCC Settlement', desc: 'Write encrypted balance hash + boolean + CCC attestation on-chain' },
+      settle: { name: 'CCC Settlement', desc: 'Write encrypted balance hash + boolean + CCC attestation onchain' },
     };
 
     function formatNumber(n) {
@@ -2495,17 +2495,17 @@
           document.getElementById('dp-data-settlement').style.color = '#22c55e';
         }, 3300);
 
-        // Step 4: CCC Attestation + On-chain Settlement (3300ms - 3900ms)
+        // Step 4: CCC Attestation + Onchain Settlement (3300ms - 3900ms)
         setTimeout(function() {
           setDPStep(4, 'active', 'Enclave re-encrypting balance table. Workflow DON quorum-signing attestation...', null);
         }, 3400);
         setTimeout(function() {
           var cccAttestation = '0xCCC_' + Array.from({ length: 8 }, function() { return Math.random().toString(16).slice(2, 4); }).join('');
-          setDPStep(4, 'done', 'CCC attestation verified. Encrypted balance hash + boolean written on-chain.', 200);
+          setDPStep(4, 'done', 'CCC attestation verified. Encrypted balance hash + boolean written onchain.', 200);
           setDPStatus('Complete', 'complete');
           document.getElementById('dp-data-proof').textContent = cccAttestation + ' (quorum-signed)';
           document.getElementById('dp-data-proof').style.color = '#22c55e';
-          document.getElementById('dp-data-amount').textContent = '\u{1F512} ' + amount + ' (never revealed on-chain)';
+          document.getElementById('dp-data-amount').textContent = '\u{1F512} ' + amount + ' (never revealed onchain)';
           document.getElementById('dp-data-amount').className = 'data-value';
           document.getElementById('dp-data-amount').style.color = '#22c55e';
           document.getElementById('dp-data-public').textContent = 'Boolean: recoverySucceeded = true + encrypted balance hash + CCC attestation';
@@ -2534,7 +2534,7 @@
           setTimeout(function() {
             showToast(
               'CCC Dark Pool Recovery Complete',
-              'Filled via CCC enclave matching + private token transfer. Only encrypted hash on-chain.',
+              'Filled via CCC enclave matching + private token transfer. Only encrypted hash onchain.',
               'success'
             );
             poll();
@@ -2872,7 +2872,7 @@
             summaryHtml = '<div class="recovery-summary recovery-summary-success">' +
               'Agent submitted <strong>' + amountStr + '</strong> CCC threshold-encrypted order to the dark pool. ' +
               'CCC enclave matched across 3 counterparties and settled via private token transfer. ' +
-              'On-chain: only encrypted balance hash + boolean + CCC attestation. Restored to <strong>' + s.toRatio + '% collateralization</strong> ' +
+              'Onchain: only encrypted balance hash + boolean + CCC attestation. Restored to <strong>' + s.toRatio + '% collateralization</strong> ' +
               '(from ' + s.fromRatio + '% &rarr; ' + s.toRatio + '%).' +
             '</div>';
           } else if (latest.success) {
