@@ -2368,30 +2368,30 @@
       // Step 1: Check Balance (0ms - 1000ms)
       scheduleAnim(function() {
         setDSStep(1, 'active', 'Querying agent wallet USDC balance...', null);
-      }, 400);
+      }, 200);
       scheduleAnim(function() {
         setDSStep(1, 'done', 'Wallet has ' + usdAmount + ' USDC available for recovery.', 50);
         document.getElementById('ds-data-balance').textContent = usdAmount + ' USDC available';
         document.getElementById('ds-data-balance').style.color = '#22c55e';
-      }, 2400);
+      }, 1200);
 
       // Step 2: Swap on Uniswap (1200ms - 3600ms)
       scheduleAnim(function() {
         setDSStep(2, 'active', 'Submitting swap on Uniswap: USDC \u2192 wBTC at market rate...', null);
-      }, 2800);
+      }, 1400);
       scheduleAnim(function() {
         setDSStep(2, 'active', 'Swap executing... waiting for block confirmation...', null);
-      }, 4800);
+      }, 2400);
       scheduleAnim(function() {
         setDSStep(2, 'done', 'Swapped ' + usdAmount + ' USDC \u2192 ' + amount + ' on Uniswap V3.', 150);
         document.getElementById('ds-data-route').textContent = 'Uniswap V3: USDC \u2192 wBTC';
         document.getElementById('ds-data-route').style.color = '#22c55e';
-      }, 7200);
+      }, 3600);
 
       // Step 3: Send to Reserve (3600ms - 5600ms)
       scheduleAnim(function() {
         setDSStep(3, 'active', 'Transferring ' + amount + ' to reserve address...', null);
-      }, 7600);
+      }, 3800);
       scheduleAnim(function() {
         var txHash = '0x' + Math.random().toString(16).slice(2, 10) + '...';
         setDSStep(3, 'done', 'Sent ' + amount + ' to reserve. Tx: ' + txHash, 100);
@@ -2408,7 +2408,7 @@
         );
         poll();
         enableAllSimBtns();
-      }, 11200);
+      }, 5600);
     }
 
     // Dark Pool Live Execution Panel
@@ -2467,31 +2467,31 @@
       // Step 1: CCC Threshold Encrypt (0ms - 1000ms)
       scheduleAnim(function() {
         setDPStep(1, 'active', 'Encrypting deficit with CCC master public key (threshold encryption)...', null);
-      }, 400);
+      }, 200);
       scheduleAnim(function() {
         setDPStep(1, 'done', 'CCC threshold encrypted. No single Vault DON node can decrypt.', 80);
         document.getElementById('dp-data-amount').textContent = '\u{1F512} ' + amount + ' (CCC threshold encrypted)';
-      }, 2400);
+      }, 1200);
 
       // Step 2: Submit (1200ms - 2400ms)
       scheduleAnim(function() {
         setDPStep(2, 'active', 'Submitting encrypted order to CREDarkPool contract...', null);
-      }, 2800);
+      }, 1400);
       scheduleAnim(function() {
         setDPStep(2, 'done', 'Order submitted to CCC Dark Pool. Contract stores encrypted blob only.', 120);
         document.getElementById('dp-data-public').textContent = 'Order exists (amount hidden)';
         document.getElementById('dp-data-public').style.color = '#eab308';
-      }, 5200);
+      }, 2600);
 
       // Step 3: CCC Enclave Match + Private Token Transfer (2600ms - 6600ms)
       scheduleAnim(function() {
         setDPStep(3, 'active', 'Vault DON re-encrypting inputs for CCC compute enclave...', null);
-      }, 5600);
+      }, 2800);
 
       if (isFailure) {
         scheduleAnim(function() {
           setDPStep(3, 'active', 'CCC enclave matching... insufficient liquidity. Extending timeout...', null);
-        }, 9600);
+        }, 4800);
         scheduleAnim(function() {
           setDPStep(3, 'failed', 'CCC enclave matching timed out. Insufficient dark pool liquidity.', 5000);
           setDPStep(4, 'failed', 'Skipped - previous step failed.', 0);
@@ -2510,11 +2510,11 @@
           document.getElementById('dp-data-public').textContent = 'Order expired (amount still hidden)';
           document.getElementById('dp-data-public').style.color = '#ef4444';
           switchRecoveryTab('failure');
-        }, 14000);
+        }, 7000);
       } else {
         scheduleAnim(function() {
           setDPStep(3, 'active', 'CCC enclave decrypted inputs. Matching 3 counterparties + applying private token transfers...', null);
-        }, 8800);
+        }, 4400);
         scheduleAnim(function() {
           setDPStep(3, 'done', 'Filled by 3 MMs via CCC private token transfer. Balances updated inside enclave.', 1800);
           document.getElementById('dp-data-parties').textContent = '3 market makers (identities hidden in CCC enclave)';
@@ -2526,12 +2526,12 @@
           document.getElementById('dp-data-settlement').textContent = 'CCC private token transfer (encrypted balance update)';
           document.getElementById('dp-data-settlement').className = 'data-value';
           document.getElementById('dp-data-settlement').style.color = '#22c55e';
-        }, 13200);
+        }, 6600);
 
         // Step 4: CCC Attestation + Onchain Settlement (6600ms - 8000ms)
         scheduleAnim(function() {
           setDPStep(4, 'active', 'Enclave re-encrypting balance table. Workflow DON quorum-signing attestation...', null);
-        }, 13600);
+        }, 6800);
         scheduleAnim(function() {
           var cccAttestation = '0xCCC_' + Array.from({ length: 8 }, function() { return Math.random().toString(16).slice(2, 4); }).join('');
           setDPStep(4, 'done', 'CCC attestation verified. Encrypted balance hash + boolean written onchain.', 200);
@@ -2543,7 +2543,7 @@
           document.getElementById('dp-data-amount').style.color = '#22c55e';
           document.getElementById('dp-data-public').textContent = 'Boolean: recoverySucceeded = true + encrypted balance hash + CCC attestation';
           document.getElementById('dp-data-public').style.color = '#22c55e';
-        }, 16000);
+        }, 8000);
       }
     }
 
@@ -2572,7 +2572,7 @@
             );
             poll();
             enableAllSimBtns();
-          }, 18000);
+          }, 9000);
         } else {
           showToast('Simulation Failed', data.error || 'Server returned an error.', 'error');
           enableAllSimBtns();
@@ -2605,7 +2605,7 @@
       } catch (err) {
         showToast('Error', err.message, 'error');
       } finally {
-        scheduleAnim(function() { enableAllSimBtns(); }, 16000);
+        scheduleAnim(function() { enableAllSimBtns(); }, 8000);
       }
     }
 
