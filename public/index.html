@@ -1686,7 +1686,7 @@
   <!-- Demo Controls -->
   <div class="demo-controls">
     <h2>Demo Controls</h2>
-    <p class="demo-desc">Trigger scenarios to see the self-healing pipeline in action. The agent automatically selects the recovery mechanism based on deficit size.</p>
+    <p class="demo-desc">Trigger scenarios to see the self-healing pipeline in action. The agent automatically selects the recovery mechanism based on deficit size. For smaller deficits, the system uses a direct wallet swap because speed matters most and public execution is acceptable. For larger deficits, it switches to the CCC path, where confidentiality matters more than raw speed. This tradeoff is the core idea behind the project: public recovery when the problem is small, and confidential recovery when market impact becomes dangerous.</p>
     <div class="demo-btn-group">
       <button id="btn-simulate" class="btn btn-primary" onclick="simulateRecovery()">Small Deficit &mdash; Direct Swap</button>
       <button id="btn-simulate-large" class="btn btn-darkpool" onclick="simulateLargeDeficit()">Large Deficit &mdash; Dark Pool</button>
