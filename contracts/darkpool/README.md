@@ -158,7 +158,7 @@ The dark pool is called by the `RecoveryAgent` when:
 ```typescript
 // In agent/recovery.ts
 if (deficitAmount > 50_000_000) {
-    // Use CCC confidential dark pool
+    // Use Chainlink Confidential Compute dark pool
     // 1. CCC threshold encrypt the deficit amount
     // 2. Submit to CREDarkPool contract
     // 3. CCC enclave matches + settles via private token transfer

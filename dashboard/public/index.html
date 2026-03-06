@@ -1868,7 +1868,7 @@
           </div>
         </div>
         <div class="mech-card darkpool-card">
-          <h3>CCC Confidential Dark Pool</h3>
+          <h3>Chainlink Confidential Compute Dark Pool</h3>
           <div class="mech-attr">
             <span class="mech-attr-label">Use Case</span>
             <span class="mech-attr-value neutral">Deficits &gt; $50M</span>
@@ -1964,7 +1964,7 @@
     <!-- Dark Pool Tab -->
     <div class="recovery-tab-content" id="tab-darkpool">
       <div class="mechanism-explainer darkpool-explainer" id="darkpool-explainer">
-        <h2>CCC Confidential Dark Pool Recovery</h2>
+        <h2>Chainlink Confidential Compute Dark Pool Recovery</h2>
         <p class="dp-subtitle">When deficits exceed $50M, recovery routes through a confidential dark pool powered by <strong>Chainlink Confidential Compute (CCC)</strong> &mdash; end-to-end confidential from encryption through settlement.</p>
 
         <div class="dp-why">
@@ -2135,7 +2135,7 @@
       trade: { name: 'Uniswap DEX Swap', desc: 'Swap USDC to wBTC on Uniswap' },
       send: { name: 'Send to Reserve', desc: 'Transfer wBTC back to the reserve fund' },
       encryptRequest: { name: 'CCC Threshold Encrypt', desc: 'Encrypt deficit with CCC master public key (threshold encryption)' },
-      submitToPool: { name: 'Submit to Dark Pool', desc: 'Submit encrypted order to CCC confidential dark pool' },
+      submitToPool: { name: 'Submit to Dark Pool', desc: 'Submit encrypted order to Chainlink Confidential Compute dark pool' },
       monitorFill: { name: 'CCC Enclave Match + Transfer', desc: 'CCC enclave matches orders and settles via private token transfer' },
       settle: { name: 'CCC Settlement', desc: 'Write encrypted balance hash + boolean + CCC attestation onchain' },
     };
@@ -2524,7 +2524,7 @@
         if (data.ok) {
           showToast(
             'Undercollateralized!',
-            'Reserve ratio dropped to ' + data.data.ratio + '%. Routing to CCC confidential dark pool...',
+            'Reserve ratio dropped to ' + data.data.ratio + '%. Routing to Chainlink Confidential Compute dark pool...',
             'error'
           );
           poll();
@@ -2819,7 +2819,7 @@
         // Mechanism badge
         var mechBadgeHtml = '';
         if (mech === 'darkpool') {
-          mechBadgeHtml = '<div class="mechanism-badge darkpool">CCC Confidential Dark Pool</div>';
+          mechBadgeHtml = '<div class="mechanism-badge darkpool">Chainlink Confidential Compute Dark Pool</div>';
         } else {
           mechBadgeHtml = '<div class="mechanism-badge direct">Direct Wallet Swap</div>';
         }
@@ -2884,7 +2884,7 @@
             '</div>';
           } else if (sMech === 'darkpool') {
             summaryHtml = '<div class="recovery-summary recovery-summary-failure">' +
-              'Agent attempted to fill <strong>' + amountStr + '</strong> via the CCC Confidential Dark Pool, ' +
+              'Agent attempted to fill <strong>' + amountStr + '</strong> via the Chainlink Confidential Compute Dark Pool, ' +
               'but the CCC enclave matching timed out due to insufficient dark pool liquidity. ' +
               'Reserve remains at <strong>' + s.fromRatio + '% collateralization</strong>. Manual intervention required.' +
             '</div>';

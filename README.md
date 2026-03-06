@@ -57,14 +57,14 @@ Without CRE and CCC, proof-of-reserve is a tradeoff between transparency and sta
 - **Market impact is zero.** Competitors, traders, and MEV bots can't front-run what they can't see
 - **Confidence is maintained.** The public sees "solvent" or "insolvent" without the noise of partial ratios
 
-## Dual Recovery: Direct Swap vs CCC Confidential Dark Pool
+## Dual Recovery: Direct Swap vs Chainlink Confidential Compute Dark Pool
 
 The agent intelligently selects the optimal recovery method based on deficit size:
 
 | Mechanism | When | How | Visibility |
 | --- | --- | --- | --- |
 | **Direct Wallet Swap** | Small deficits (<$50M) | Agent swaps USDC → wBTC on Uniswap | Public onchain txs |
-| **CCC Confidential Dark Pool** | Large deficits (>$50M) | CCC threshold-encrypted matching + private token settlement | Only boolean result + encrypted hash public |
+| **Chainlink Confidential Compute Dark Pool** | Large deficits (>$50M) | CCC threshold-encrypted matching + private token settlement | Only boolean result + encrypted hash public |
 
 ### Why two mechanisms?
 
@@ -115,7 +115,7 @@ The key tradeoff: the dark pool requires pre-positioned capital, which means ong
 
 ## Recovery Mechanism Comparison
 
-| | Direct Wallet Swap | CCC Confidential Dark Pool |
+| | Direct Wallet Swap | Chainlink Confidential Compute Dark Pool |
 | --- | --- | --- |
 | **Use Case** | Deficits < $50M | Deficits > $50M |
 | **Execution Venue** | Uniswap (Public DEX) | CCC Compute Enclave |
@@ -134,7 +134,7 @@ The **[live demo dashboard](https://self-healing-reserve.vercel.app)** uses real
 Three simulation scenarios demonstrate the system end-to-end:
 
 - **Small Deficit → Direct Swap**: Reserve drops to 99.9%. Agent swaps USDC → wBTC via Uniswap, restores to 100%. Remaining 5% buffer replenished via scheduled OTC.
-- **Large Deficit → CCC Dark Pool**: Reserve drops to 95%. Agent routes through CCC confidential dark pool with threshold-encrypted order, CCC enclave matching, private token settlement. Restored to 105%.
+- **Large Deficit → CCC Dark Pool**: Reserve drops to 95%. Agent routes through Chainlink Confidential Compute dark pool with threshold-encrypted order, CCC enclave matching, private token settlement. Restored to 105%.
 - **Dark Pool Failure**: CCC enclave matching times out. System stays undercollateralized until manual intervention. Demonstrates graceful failure handling.
 
 Each scenario shows a live step-by-step execution panel with timing, status, and a comparison of what's public vs what stays private.
