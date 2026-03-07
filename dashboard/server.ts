@@ -667,7 +667,6 @@ app.post('/api/simulate-large', async (_req, res) => {
         const fmtRecovery = recoveryAmount.toLocaleString('en-US', { maximumFractionDigits: 0 })
         const fmtUsd = '$' + recoveryAmountUsd.toLocaleString('en-US')
         const orderId = 'DP-' + Math.random().toString(36).slice(2, 8).toUpperCase()
-        const zkProof = '0x' + Array.from({ length: 8 }, () => Math.random().toString(16).slice(2, 4)).join('')
 
         const balanceHash = '0x' + Array.from({ length: 16 }, () => Math.random().toString(16).slice(2, 4)).join('')
         const cccAttestation = '0xCCC_' + Array.from({ length: 12 }, () => Math.random().toString(16).slice(2, 4)).join('')

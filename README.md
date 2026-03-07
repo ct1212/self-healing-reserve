@@ -210,7 +210,7 @@ The demo uses real Chainlink wBTC PoR data as a simulation anchor and simulates 
 - Reserve data flows from the custodian's private API into the CRE workflow via ConfidentialHTTP, never via a public PoR feed
 - CCC threshold encryption replaces simulated encryption. The Vault DON manages the master key
 - Dark pool settlement uses real CCC private token transfers with encrypted balance tables and enclave attestation
-- ZK proofs provide additional settlement verification (optional, layered on CCC attestation)
+- CCC attestation proves settlement was computed correctly inside the enclave
 
 ## Stack
 

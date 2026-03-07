@@ -289,7 +289,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const fmtRecovery = recoveryAmount.toLocaleString('en-US', { maximumFractionDigits: 0 })
         const fmtUsd = '$' + recoveryAmountUsd.toLocaleString('en-US')
         const orderId = 'DP-' + Math.random().toString(36).slice(2, 8).toUpperCase()
-        const zkProof = '0x' + Array.from({ length: 8 }, () => Math.random().toString(16).slice(2, 4)).join('')
+        const cccAttestation = '0x' + Array.from({ length: 8 }, () => Math.random().toString(16).slice(2, 4)).join('')
 
         recoveryHistory.push({
           timestamp: recoveryTime, success: true, durationMs: 2200, mechanism: 'darkpool',
@@ -297,7 +297,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             { step: 'encryptRequest', success: true, timestamp: recoveryTime, durationMs: 80, mechanism: 'darkpool', data: { algorithm: 'AES-256-GCM', payload: '128-byte encrypted order' } },
             { step: 'submitToPool', success: true, timestamp: recoveryTime + 100, durationMs: 120, mechanism: 'darkpool', data: { orderId, venue: 'Chainlink Confidential Dark Pool', amount: fmtRecovery + ' wBTC' } },
             { step: 'monitorFill', success: true, timestamp: recoveryTime + 250, durationMs: 1800, mechanism: 'darkpool', data: { fillPrice: 'TWAP ± 0.05%', matchedCounterparties: 3, executionLatency: '1.8s' } },
-            { step: 'settle', success: true, timestamp: recoveryTime + 2100, durationMs: 200, mechanism: 'darkpool', data: { zkProof, settlementTx: '0x' + Math.random().toString(16).slice(2, 10) + '...', gasUsed: '145,230' } },
+            { step: 'settle', success: true, timestamp: recoveryTime + 2100, durationMs: 200, mechanism: 'darkpool', data: { cccAttestation, settlementTx: '0x' + Math.random().toString(16).slice(2, 10) + '...', gasUsed: '145,230' } },
           ],
           summary: { shortfall: liabilities - droppedReserve, recoveryAmount, recoveryAmountUsd, fromRatio: 95, toRatio: 105, feedDescription: feedDesc, mechanism: 'darkpool' },
         })
@@ -305,7 +305,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         events.push({ isSolvent: true, timestamp: Math.floor(recoveryTime / 1000), blockNumber: events.length + 1 })
         agentActivity.push({
           action: 'recovery', timestamp: Math.floor(recoveryTime / 1000),
-          details: `Dark pool recovery complete. Filled ${fmtRecovery} wBTC (${fmtUsd}) via confidential TEE matching.`,
+          details: `Dark pool recovery complete. Filled ${fmtRecovery} wBTC (${fmtUsd}) via confidential CCC enclave matching.`,
         })
 
         initMetrics()
@@ -351,7 +351,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         steps: [
           { step: 'encryptRequest', success: true, timestamp: now, durationMs: 80, mechanism: 'darkpool', data: { algorithm: 'AES-256-GCM', payload: '128-byte encrypted order' } },
           { step: 'submitToPool', success: true, timestamp: now + 100, durationMs: 120, mechanism: 'darkpool', data: { orderId, venue: 'Chainlink Confidential Dark Pool', amount: fmtRecovery + ' wBTC' } },
-          { step: 'monitorFill', success: false, timestamp: now + 250, durationMs: 5000, mechanism: 'darkpool', data: { error: 'TEE matching engine timed out. Insufficient dark pool liquidity for ' + fmtRecovery + ' wBTC' } },
+          { step: 'monitorFill', success: false, timestamp: now + 250, durationMs: 5000, mechanism: 'darkpool', data: { error: 'CCC enclave matching timed out. Insufficient dark pool liquidity for ' + fmtRecovery + ' wBTC' } },
           { step: 'settle', success: false, timestamp: now + 5300, durationMs: 0, mechanism: 'darkpool', data: { error: 'Skipped, previous step failed' } },
         ],
         summary: { shortfall: liabilities - droppedReserve, recoveryAmount, fromRatio: 95, toRatio: 105, feedDescription: feedDesc, mechanism: 'darkpool' },
@@ -365,12 +365,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       agentActivity.push({
         action: 'recovery', timestamp: Math.floor(now / 1000),
-        details: `Dark pool recovery FAILED. TEE matching engine timed out for ${fmtRecovery} wBTC (${fmtUsd}). Manual intervention required.`,
+        details: `Dark pool recovery FAILED. CCC enclave matching timed out for ${fmtRecovery} wBTC (${fmtUsd}). Manual intervention required.`,
       })
 
       return res.json({
         ok: true, phase: 'failed', mechanism: 'darkpool',
-        data: { totalReserve: droppedReserve, totalLiabilities: liabilities, failedStep: 'Dark Pool Fill', error: 'TEE matching engine timed out', feedDescription: feedDesc },
+        data: { totalReserve: droppedReserve, totalLiabilities: liabilities, failedStep: 'Dark Pool Fill', error: 'CCC enclave matching timed out', feedDescription: feedDesc },
       })
     }
 

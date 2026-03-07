@@ -23,7 +23,6 @@ import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol";
  */
 contract CREDarkPool is AccessControl, ReentrancyGuard {
 
-    bytes32 public constant TEE_VERIFIER_ROLE = keccak256("TEE_VERIFIER_ROLE");
     bytes32 public constant RECOVERY_MANAGER_ROLE = keccak256("RECOVERY_MANAGER_ROLE");
     bytes32 public constant VAULT_OPERATOR_ROLE = keccak256("VAULT_OPERATOR_ROLE");
     bytes32 public constant CCC_ENCLAVE_ROLE = keccak256("CCC_ENCLAVE_ROLE");
@@ -59,7 +58,7 @@ contract CREDarkPool is AccessControl, ReentrancyGuard {
     struct ShieldedFill {
         bytes32 shieldedAddress;        // MM deposits here
         bytes32 encryptedAmount;        // Fill amount (CCC threshold encrypted)
-        bytes32 teeAttestation;         // CCC enclave attestation (quorum-signed)
+        bytes32 enclaveAttestation;         // CCC enclave attestation (quorum-signed)
         bool withdrawn;
     }
 
@@ -123,7 +122,7 @@ contract CREDarkPool is AccessControl, ReentrancyGuard {
     event ConfidentialFillSubmitted(
         bytes32 indexed requestId,
         bytes32 indexed shieldedAddress,
-        bytes32 indexed teeAttestation
+        bytes32 indexed enclaveAttestation
     );
 
     event RequestFilled(
@@ -227,16 +226,16 @@ contract CREDarkPool is AccessControl, ReentrancyGuard {
      * @param requestId The request being filled
      * @param encryptedAmount Fill amount (encrypted)
      * @param shieldedAddress The shielded address that received funds
-     * @param teeAttestation CCC enclave attestation of deposit to shielded address
+     * @param enclaveAttestation CCC enclave attestation of deposit to shielded address
      * @param withdrawalTicket Ticket for recovery agent to withdraw
      */
     function confidentialFill(
         bytes32 requestId,
         bytes32 encryptedAmount,
         bytes32 shieldedAddress,
-        bytes32 teeAttestation,
+        bytes32 enclaveAttestation,
         bytes32 withdrawalTicket
-    ) external onlyRole(TEE_VERIFIER_ROLE) nonReentrant {
+    ) external onlyRole(CCC_ENCLAVE_ROLE) nonReentrant {
         CollateralRequest storage req = requests[requestId];
         
         if (req.status != RequestStatus.PENDING) revert RequestNotPending();
@@ -247,7 +246,7 @@ contract CREDarkPool is AccessControl, ReentrancyGuard {
         fills[requestId] = ShieldedFill({
             shieldedAddress: shieldedAddress,
             encryptedAmount: encryptedAmount,
-            teeAttestation: teeAttestation,
+            enclaveAttestation: enclaveAttestation,
             withdrawn: false
         });
         
@@ -255,7 +254,7 @@ contract CREDarkPool is AccessControl, ReentrancyGuard {
         req.withdrawalTicket = withdrawalTicket;
         req.status = RequestStatus.FILLED;
         
-        emit ConfidentialFillSubmitted(requestId, shieldedAddress, teeAttestation);
+        emit ConfidentialFillSubmitted(requestId, shieldedAddress, enclaveAttestation);
         emit RequestFilled(requestId, withdrawalTicket);
     }
     
@@ -413,10 +412,10 @@ contract CREDarkPool is AccessControl, ReentrancyGuard {
         bytes32 requestId,
         bytes32 encryptedAmount,
         bytes32 shieldedAddress,
-        bytes32 teeAttestation,
+        bytes32 enclaveAttestation,
         bytes32 withdrawalTicket,
         bool isFinalFill
-    ) external onlyRole(TEE_VERIFIER_ROLE) nonReentrant {
+    ) external onlyRole(CCC_ENCLAVE_ROLE) nonReentrant {
         CollateralRequest storage req = requests[requestId];
         
         if (req.status != RequestStatus.PENDING && req.status != RequestStatus.PARTIALLY_FILLED) {
@@ -435,7 +434,7 @@ contract CREDarkPool is AccessControl, ReentrancyGuard {
             req.status = RequestStatus.PARTIALLY_FILLED;
         }
         
-        emit ConfidentialFillSubmitted(requestId, shieldedAddress, teeAttestation);
+        emit ConfidentialFillSubmitted(requestId, shieldedAddress, enclaveAttestation);
     }
     
     /**

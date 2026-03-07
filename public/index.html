@@ -14,7 +14,8 @@
   <meta name="twitter:image" content="https://self-healing-reserve.vercel.app/og-image.png">
   <meta name="twitter:title" content="CRE Powered Self-Healing Reserve">
   <meta name="twitter:description" content="Confidential proof-of-reserve with autonomous recovery. Built on Chainlink CRE for Convergence Hackathon 2026.">
-  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <link rel="shortcut icon" href="/favicon.png">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -2897,9 +2898,8 @@
             if (s.data.fillPrice) details.push('Fill: ' + s.data.fillPrice);
             if (s.data.matchedCounterparties) details.push(s.data.matchedCounterparties + ' counterparties');
             if (s.data.settlement) details.push(s.data.settlement);
-            if (s.data.zkProof) details.push('ZK proof: ' + s.data.zkProof);
-            if (s.data.balanceHash) details.push('Balance hash: ' + s.data.balanceHash);
             if (s.data.cccAttestation) details.push('CCC attestation: ' + s.data.cccAttestation);
+            if (s.data.balanceHash) details.push('Balance hash: ' + s.data.balanceHash);
             if (s.data.onChain) details.push(s.data.onChain);
             if (s.data.settlementTx) details.push('tx: ' + s.data.settlementTx);
             if (s.data.gasUsed) details.push('Gas: ' + s.data.gasUsed);
