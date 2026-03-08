@@ -4,6 +4,10 @@
 
 **[Live Demo](https://self-healing-reserve.vercel.app)** | Built for **Chainlink Convergence Hackathon 2026**
 
+## Demo Video
+
+[![Demo Video](https://img.youtube.com/vi/5l1G1lOo3qk/maxresdefault.jpg)](https://youtu.be/5l1G1lOo3qk)
+
 ---
 
 ## The Problem
